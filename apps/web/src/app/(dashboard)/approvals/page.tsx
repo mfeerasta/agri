@@ -24,6 +24,11 @@ export default async function ApprovalsListPage() {
     <div>
       <Masthead section="APPROVALS" />
       <SectionDivider />
+      <div className="flex justify-end px-4 py-2">
+        <Link href={'/approvals/board' as never} className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--surface-2)]">
+          Board
+        </Link>
+      </div>
       <Card className="mb-6">
         <CardHeader><CardTitle>Pending · {pending.length}</CardTitle></CardHeader>
         <CardContent className="p-0">

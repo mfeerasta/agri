@@ -1,0 +1,2 @@
+code,name,nameUr,acres,geometry,khasra,tenure,blockCode
+F1,Field 1,میدان ایک,12.5,"{""type"":""Polygon"",""coordinates"":[[[74.3,31.5],[74.31,31.5],[74.31,31.51],[74.3,31.51],[74.3,31.5]]]}",123;456,owned,B1

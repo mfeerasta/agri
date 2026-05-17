@@ -5,6 +5,7 @@ export * from './crops.js';
 export * from './inventory.js';
 export * from './assets.js';
 export * from './diesel.js';
+export * from './diesel-anomalies.js';
 export * from './repairs.js';
 export * from './livestock.js';
 export * from './labor.js';

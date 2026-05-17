@@ -55,6 +55,7 @@ Deno.serve(async () => {
       const lph = ltr / hrs;
       const overPct = ((lph - baselineLph) / baselineLph) * 100;
       if (overPct > THRESHOLD_PCT) {
+        const severity = overPct > 50 ? 'critical' : overPct > 25 ? 'high' : 'warning';
         await supabase
           .from('diesel_daily_logs')
           .update({ anomaly_flag: `high_burn:${overPct.toFixed(1)}pct` })
@@ -68,7 +69,19 @@ Deno.serve(async () => {
             baseline_lph: Number(baselineLph.toFixed(2)),
             observed_lph: Number(lph.toFixed(2)),
             over_pct: Number(overPct.toFixed(1)),
+            severity,
           },
+        });
+        await supabase.from('diesel_anomalies').insert({
+          entity_id: r.entity_id,
+          asset_id: assetId,
+          diesel_daily_log_id: r.id,
+          detected_on: r.log_date,
+          rolling_30d_avg_lph: Number(baselineLph.toFixed(3)),
+          observed_lph: Number(lph.toFixed(3)),
+          deviation_pct: Number(overPct.toFixed(2)),
+          severity,
+          status: 'open',
         });
         const { data: managers } = await supabase
           .from('user_entity_roles')

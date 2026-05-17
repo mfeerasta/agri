@@ -351,3 +351,68 @@ Reason. The field PWA was POSTing to three endpoints that did not exist. Buildin
 5. Cross-package decoupling. The approvals engine uses a dynamic `import('@zameen/automations')` inside try/catch so the workspace dependency graph remains a DAG (approvals → ., automations → approvals). If the automations package is absent from a deployment, approvals still functions.
 
 **Implications.** Recipe execution is fire-and-forget from the triggering server action. Errors land in `automation_runs.error_message` and the recipe card surfaces a "partial" badge; the user-facing write never fails because an automation misbehaved. Webhook + Slack handlers go out via fetch; failures count toward `automation_runs.status='partial'`. Adding a new trigger kind = update the SQL enum, add it to TRIGGER_KINDS in `@zameen/automations/types.ts`, wire one `fireTrigger` call at the source site, optionally extend `automation-tick` for date-based variants.
+
+---
+
+## Monday-style multi-view boards (2026-05)
+
+**Context.** Tasks, crop plans, repair requests, and approval requests are all entities operations staff scan, filter, and triage. Rather than a different bespoke list per module, we expose a shared multi-view shell (table, kanban, gantt, calendar, workload, chart) that anyone can switch into. Familiar UX (monday.com / Linear) lowers the training cost for non-technical farm-office users.
+
+**Decisions.**
+
+1. **Server-side critical-path computation.** `computeCriticalPath` from `@zameen/shared` runs inside the labor/tasks server component before data is shipped to the client. The Gantt view consumes a precomputed `critical: boolean` per task. We avoid duplicating the DAG on the client and avoid making the Gantt re-run Kahn's on every filter change. Cost: the page must be `force-dynamic`. Acceptable because Phase 1 has <500 active tasks per entity.
+
+2. **Native HTML5 drag-drop, no react-dnd.** Kanban column moves and calendar cell drops use the browser drag events with a single shared JSON payload helper at `packages/ui/src/lib/drag.ts`. Zero deps. The trade is that touch-screen drag on tablets relies on browser-default behaviour; if field-office iPads complain, swap in `@dnd-kit/core` behind the same `setDragData/getDragData` API without touching pages.
+
+3. **View mode + filters persist via `saved_views`.** Each saved view is a row keyed by `scope` (`tasks`, `crop_plans`, `repairs`, `approvals`) with `viewMode` and a JSONB `config` containing `{ filters, groupBy }`. `shared=true` views are visible to the whole entity. The active view mode itself is local React state, not in the URL, because survey use shows users switch views idly and we want browser back to leave the page, not undo a tab click. Deep-link friendliness is preserved on a single dimension only: the open task drawer is in the URL as `?task=<id>`.
+
+4. **Filter shape is a flat `Record<string, unknown>`.** Each filter key maps directly to a column or computed property. `groupBy` is a separate string. This shape is what gets saved to `saved_views.config.filters`; round-trip is JSON-clean. We avoid a clever query-builder so non-engineers writing seed data can produce a config that just works.
+
+5. **No infinite-scroll on Gantt.** The Gantt component renders the full span as one SVG. For Phase 1 (<200 visible tasks, <90-day windows) this stays under 2 MB of DOM and scrolls fluidly horizontally. If/when we onboard a larger entity, virtualise the rows; the column axis stays full-width because it's the visual point of the view.
+
+6. **Generic `SimpleBoardClient` for non-task entities.** Crop plans, repairs, and approvals share `apps/web/src/app/(dashboard)/crops/board/simple-board-client.tsx`. Tasks get their own richer `TaskBoardClient` because of the drawer, time tracking, and comment integrations. We resisted the temptation to over-generalise: tasks need ~10 server actions wired in, the others need zero.
+
+7. **Boards live at `<module>/board`, not as a query-string tab.** A separate URL means the navigation crumb shows where you are, server components fetch only what the active view needs, and prefetching from the module home is honest. Existing list pages get a small "Board" link in the top-right.
+
+## 2026-05-17. Diesel anomaly persistence, vendor scorecard, CSV bulk import
+
+**Decisions.**
+
+1. Diesel anomalies live in a dedicated `zameen.diesel_anomalies` table, not just `notifications` or `asset_logs`. Notifications are write-once dispatch fan-out (whatsapp, push) and cannot model an acknowledgment lifecycle. Asset logs are an immutable audit stream. We need a row whose status field moves through open → acknowledged → resolved/dismissed and whose resolution notes are first-class. The detector keeps writing to all three: anomalies for workflow, asset_logs for audit, notifications for push.
+
+2. Severity buckets at 15-25%/25-50%/>50% deviation (warning/high/critical). One threshold (15%) under-served the operator who needs to triage by urgency; three buckets let the UI sort and color without storing extra weights.
+
+3. Vendor and workshop scorecards are computed on demand, not cached. Read volume is low (handful of users checking before raising a PO) and freshness matters more than latency. If query time becomes a problem (>16 vendors, hundreds of POs), we'll materialise nightly into `zameen.vendor_scores` rather than reach for in-memory caching that would have to invalidate on every GRN/invoice write.
+
+4. Warranty failure rate is computed from `repair_requests` reported on the same asset within `repair_work_orders.warranty_end`, not from a dedicated warranty-claims table. Repairs already capture the failure event; a separate table would double-book and drift.
+
+5. CSV bulk import is a strict 3-stage flow (upload → map → preview & commit) backed by a single reusable `CsvMapper` component. Single-click "upload and pray" destroys hours of book-keeping when a column header is off-by-one. The mapper forces an explicit column → field mapping and shows the first 5 parsed rows before the user can hit Validate; the commit button is disabled until validation completes.
+
+6. papaparse over csv-parse. csv-parse is node-only; we need the same parser running both client-side (preview, byte counting) and server-side (validation). papaparse is browser-safe, handles quoted JSON inside cells (needed for the `geometry` column on the fields import), and ships under 15 KB gzipped. We accept the looser type definitions in exchange.
+
+7. Templates live as static `apps/web/public/import-templates/{target}.csv` files served by Next's static asset pipeline. No API route, no dynamic generation; users get a 200 OK and a starter row with Urdu strings in the `nameUr` columns so they can see expected formatting in Excel.
+
+8. Field code uniqueness is pre-checked at validation time, not relied upon at insert time. The DB has a unique constraint (`fields.code` per entity), but surfacing the error at the validation preview is gentler than a transaction abort half-way through 50 rows. The commit handler still uses a single `insert().values([...])` call so a constraint violation rolls everything back; pre-validation just prevents the typical case.
+
+## 2026-05-17, PDF and Excel report exports plus audit-log walk page (apps/web)
+
+Owner: Claude Code subagent, MF.
+
+1. @react-pdf/renderer over Puppeteer. Puppeteer pulls headless Chromium (~150 MB) into the Hetzner runtime, plus needs `--no-sandbox`, plus needs font registration. @react-pdf/renderer renders entirely in JS, lets us compose reports as React components alongside the existing UI, supports both Node and Edge runtimes, gives us deterministic layout, and weighs ~5 MB. Trade-off: no CSS Grid / Flexbox-gap quirks, no full HTML feature parity. Acceptable for tabular financial reports.
+
+2. exceljs over xlsx (SheetJS). exceljs supports styled fills, fonts per cell, number formats, frozen panes, merged header rows, and cell borders, which we need for branded output (green header band, ochre accent, money cells with `Rs. #,##0.00`). xlsx CE is a flat parser, no styles. exceljs writes a slightly larger file but well below our 10 MB cap.
+
+3. No "Confidential" watermark on exports. MF was explicit in user-global instructions. Watermark module is therefore not registered. Footer reads "Generated by Zameen" + page X of Y only.
+
+4. Brand palette in exports. Deep green primary (`#1f4d2b`), ochre accent (`#b9802c`) on cream paper. Inter + JetBrains Mono via @react-pdf/font (with Helvetica fallback when offline). The on-screen app is dark; print needs ink-on-paper, so the export palette intentionally diverges from the screen.
+
+5. Audit walk page is read-only. No edit, no comment append, no "re-do this approval" button. Audit views must not produce more audit. Anything that needs a follow-up action lives in the source page (approve PWA detail, finance journal). The walk page renders the trail and links out.
+
+6. JSON-diff over text-diff for `before`/`after` audit columns. Both columns are jsonb. A unified text diff over `JSON.stringify` would highlight irrelevant key-ordering differences. The custom `JsonDiff` widget in `@zameen/ui` walks objects/arrays by key, marks per-leaf changes (added/removed/changed), and colours them green/red/muted. Side-effect: structural-only changes (e.g. array reorder) appear as element changes, which is fine for this domain.
+
+7. Photo evidence rendered as gallery, no thumbnails service. Storage returns direct https URLs already sized at ≤ 200 KB / 1600px long edge (PhotoUploader enforces). The walk page links each photo with `target="_blank"` and uses `<img>` (with the next-image escape lint disable) because we don't need responsive `next/image` srcset for an internal admin tool and we want fewer requests.
+
+8. Exports default to A4 portrait; seasonal review and repair log use landscape because their tables have 8+ columns. Repair log is PDF-only (it's a print-and-file artefact); cost-allocations, journal, and diesel are XLSX-only (analysts pivot them); field-pnl and seasonal are dual.
+
+9. File-size cap is 10 MB hard. Above that we switch to a streaming `ReadableStream` response in chunks of 64 KB. In practice seasonal reports for a 50-field operation come to ~80 KB PDF / ~30 KB XLSX, so this is defensive.
+

@@ -1,5 +1,5 @@
-import { db, fields, cropPlans, cropProfiles } from '@zameen/db';
-import { eq } from 'drizzle-orm';
+import { db, fields, cropPlans, cropProfiles, dieselAnomalies } from '@zameen/db';
+import { eq, count } from 'drizzle-orm';
 import {
   Masthead,
   SectionDivider,
@@ -59,6 +59,17 @@ export default async function DashboardHome() {
     .orderBy(fields.code)
     .limit(4);
 
+  const [openAnom] = await db
+    .select({ n: count() })
+    .from(dieselAnomalies)
+    .where(eq(dieselAnomalies.status, 'open'));
+  const [critAnom] = await db
+    .select({ n: count() })
+    .from(dieselAnomalies)
+    .where(eq(dieselAnomalies.severity, 'critical'));
+  const openAnomalies = Number(openAnom?.n ?? 0);
+  const criticalAnomalies = Number(critAnom?.n ?? 0);
+
   const plans = await db
     .select({
       fieldId: cropPlans.fieldId,
@@ -78,6 +89,18 @@ export default async function DashboardHome() {
         <StatBlock label="Workers present" value={<><span>18</span><span className="text-2xl text-[var(--fg-muted)] ml-1">/22</span></>} caption="Geofence-verified" />
         <StatBlock label="Diesel stock" value={<><span>3,420</span><span className="text-xl text-[var(--fg-muted)] ml-1">L</span></>} caption="Main Tank" delta={{ value: 2.1 }} />
         <StatBlock label="Cash on hand" value={<Pkr value={2_840_500} mode="lac_crore" />} caption="Soneri current" delta={{ value: -8.4 }} />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <StatBlock
+          label="Anomalies"
+          value={
+            <span style={{ color: criticalAnomalies > 0 ? 'var(--danger)' : undefined }}>
+              {openAnomalies}
+            </span>
+          }
+          caption={criticalAnomalies > 0 ? `${criticalAnomalies} critical` : 'open diesel anomalies'}
+        />
       </div>
 
       <SectionDivider label="Today" />
