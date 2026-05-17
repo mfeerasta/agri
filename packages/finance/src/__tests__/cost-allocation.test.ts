@@ -1,12 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { resetDb, getRows } from '@zameen/db';
+import { proportionalSplit, allocateCost } from '../cost-allocation.js';
 
-// Mock @zameen/db so importing cost-allocation does not require a live DB.
-vi.mock('@zameen/db', () => ({
-  db: { insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })) },
-  costAllocations: {},
-}));
-
-import { proportionalSplit } from '../cost-allocation.js';
+beforeEach(() => {
+  resetDb();
+});
 
 describe('proportionalSplit', () => {
   it('sums to exact total (drift goes to first row)', () => {
@@ -28,7 +26,6 @@ describe('proportionalSplit', () => {
     ]);
     const sum = Number(out.reduce((a, b) => a + b.amountPkr, 0).toFixed(2));
     expect(sum).toBe(1000);
-    // b ~= 333.33, c = 500, a absorbs the rest
     expect(out[1]!.amountPkr).toBeCloseTo(333.33, 2);
     expect(out[2]!.amountPkr).toBeCloseTo(500, 2);
   });
@@ -56,5 +53,24 @@ describe('proportionalSplit', () => {
     ]);
     const sum = Number(out.reduce((a, b) => a + b.amountPkr, 0).toFixed(2));
     expect(sum).toBe(33.33);
+  });
+});
+
+describe('allocateCost', () => {
+  it('appends a row to costAllocations with the input values', async () => {
+    await allocateCost({
+      entityId: 'e-1',
+      sourceModule: 'diesel',
+      sourceRecordId: 'src-1',
+      costPool: 'diesel',
+      amountPkr: 1234.5,
+      allocatedOn: '2026-05-17',
+      fieldId: 'f-1',
+    });
+    const rows = getRows('costAllocations');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.amountPkr).toBe('1234.5');
+    expect(rows[0]!.fieldId).toBe('f-1');
+    expect(rows[0]!.costPool).toBe('diesel');
   });
 });

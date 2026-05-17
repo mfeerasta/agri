@@ -46,8 +46,17 @@ export default async function FieldsListPage() {
       <Masthead section="FIELDS" />
       <SectionDivider />
 
-      <div className="flex justify-end">
-        <Link href={'/fields/new' as never} className="rounded-md bg-emerald-700 px-4 py-2 text-sm text-white">
+      <div className="flex justify-end gap-2">
+        <Link
+          href={'/fields/map' as never}
+          className="rounded-md border border-[var(--border)] px-4 py-2 text-sm text-[var(--fg)] hover:bg-[var(--surface-2)]"
+        >
+          Full map
+        </Link>
+        <Link
+          href={'/fields/new' as never}
+          className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg)] hover:opacity-90"
+        >
           New field
         </Link>
       </div>

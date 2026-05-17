@@ -17,6 +17,7 @@ export * from './components/area-input.js';
 export * from './components/weight-input.js';
 export * from './components/field-selector.js';
 export * from './components/field-map.js';
+export * from './components/field-editor.js';
 export * from './components/signature-canvas.js';
 export * from './components/quote-comparison.js';
 export * from './components/chart-card.js';

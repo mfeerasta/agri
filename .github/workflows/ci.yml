@@ -40,5 +40,31 @@ jobs:
 
       - run: pnpm typecheck
 
-      - name: Unit tests
+      - name: Unit tests (no Docker, no Postgres)
         run: pnpm test
+
+  integration-tests:
+    # Integration tests spin up Postgres via testcontainers (needs Docker).
+    # Run only on main-branch pushes — PRs stay on unit tests for speed.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: lint-typecheck-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Integration tests (Postgres via testcontainers)
+        env:
+          RUN_INT_TESTS: '1'
+        run: pnpm test:int

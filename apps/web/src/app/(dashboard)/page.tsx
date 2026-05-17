@@ -1,14 +1,17 @@
+import { db, fields, cropPlans, cropProfiles } from '@zameen/db';
+import { eq } from 'drizzle-orm';
 import {
   Masthead,
   SectionDivider,
   StatBlock,
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   Pkr,
   ChartCard,
+  FieldMap,
 } from '@zameen/ui';
+
+export const dynamic = 'force-dynamic';
 
 const DIESEL_30D = [
   { day: 'Apr 18', litres: 142 },
@@ -25,7 +28,47 @@ const TODAY_TASKS = [
   { code: 'F2', title: 'Tubewell 1 service', crew: 'Mechanic Imran' },
 ];
 
-export default function DashboardHome() {
+const CROP_PALETTE: Record<string, string> = {
+  wheat: '#E5B25D',
+  maize: '#F2B84B',
+  cotton: '#F4F1EA',
+  rice: '#7FB069',
+  berseem: '#2D6A4F',
+  sugarcane: '#74C69D',
+  fodder: '#52B788',
+};
+
+function colorFor(cropName: string | null): string {
+  if (!cropName) return '#4B5563';
+  const key = cropName.toLowerCase();
+  for (const [k, v] of Object.entries(CROP_PALETTE)) {
+    if (key.includes(k)) return v;
+  }
+  return '#22D3EE';
+}
+
+export default async function DashboardHome() {
+  const rows = await db
+    .select({
+      id: fields.id,
+      code: fields.code,
+      acres: fields.acres,
+      geometry: fields.geometry,
+    })
+    .from(fields)
+    .orderBy(fields.code)
+    .limit(4);
+
+  const plans = await db
+    .select({
+      fieldId: cropPlans.fieldId,
+      stage: cropPlans.currentStage,
+      cropName: cropProfiles.name,
+    })
+    .from(cropPlans)
+    .leftJoin(cropProfiles, eq(cropProfiles.id, cropPlans.cropProfileId));
+  const planByField = new Map(plans.map((p) => [p.fieldId, p]));
+
   return (
     <div>
       <Masthead section="Overview" />
@@ -41,9 +84,6 @@ export default function DashboardHome() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Tasks in motion</CardTitle>
-          </CardHeader>
           <CardContent className="p-0">
             <ul>
               {TODAY_TASKS.map((t, idx) => (
@@ -74,15 +114,37 @@ export default function DashboardHome() {
       <SectionDivider label="Field activity" />
 
       <div className="grid gap-4 md:grid-cols-4">
-        {['F3 Wheat', 'F7 Wheat', 'F11 Berseem', 'F15 Fallow'].map((label) => (
-          <Card key={label}>
-            <CardContent className="space-y-3">
-              <div className="smallcaps">{label}</div>
-              <div className="aspect-[4/3] rounded-[10px] bg-gradient-to-br from-[var(--surface-2)] to-[var(--bg-2)] border border-[var(--border)]" />
-              <div className="tabular text-xs text-[var(--fg-muted)]">6.2 acre · vegetative stage</div>
-            </CardContent>
-          </Card>
-        ))}
+        {rows.map((r) => {
+          const plan = planByField.get(r.id);
+          const cropName = plan?.cropName ?? null;
+          const color = colorFor(cropName);
+          return (
+            <Card key={r.id}>
+              <CardContent className="space-y-3">
+                <div className="smallcaps">{r.code} {cropName ?? 'Fallow'}</div>
+                <div className="aspect-[4/3] overflow-hidden rounded-[10px] border border-[var(--border)]">
+                  {r.geometry ? (
+                    <FieldMap
+                      fields={[{
+                        id: r.id,
+                        code: r.code,
+                        geometry: r.geometry as { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown },
+                        cropColor: color,
+                      }]}
+                      height={180}
+                      styleUrl="mapbox://styles/mapbox/satellite-streets-v12"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-[var(--surface-2)] to-[var(--bg-2)]" />
+                  )}
+                </div>
+                <div className="tabular text-xs text-[var(--fg-muted)]">
+                  {Number(r.acres).toFixed(2)} acre · {plan?.stage ?? 'fallow'}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <div className="mt-12 pt-6 border-t border-[var(--border)] flex items-center justify-between text-xs text-[var(--fg-subtle)]">

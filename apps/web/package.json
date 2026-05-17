@@ -29,6 +29,7 @@
     "zod": "^3.23.8",
     "zustand": "^5.0.1",
     "mapbox-gl": "^3.8.0",
+    "@turf/area": "^7.1.0",
     "recharts": "^2.13.3",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.36.4"
