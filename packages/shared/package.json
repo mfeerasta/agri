@@ -9,7 +9,9 @@
     ".": "./src/index.ts",
     "./units": "./src/units.ts",
     "./money": "./src/money.ts",
-    "./validators": "./src/validators/index.ts"
+    "./validators": "./src/validators/index.ts",
+    "./integrations/slack": "./src/integrations/slack.ts",
+    "./integrations/google-calendar": "./src/integrations/google-calendar.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

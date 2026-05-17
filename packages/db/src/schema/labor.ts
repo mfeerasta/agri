@@ -1,4 +1,5 @@
-import { boolean, decimal, jsonb, text, timestamp, uuid, varchar, date } from 'drizzle-orm/pg-core';
+import { boolean, decimal, integer, jsonb, text, timestamp, uuid, varchar, date } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { zameen } from './_schema.js';
 import { entities, users } from './core.js';
 import { fields } from './land.js';
@@ -59,6 +60,13 @@ export const tasks = zameen.table('tasks', {
   scheduledFor: date('scheduled_for'),
   estimatedHours: decimal('estimated_hours', { precision: 6, scale: 2 }),
   status: varchar('status', { length: 16 }).notNull().default('open'),
+  parentTaskId: uuid('parent_task_id').references((): AnyPgColumn => tasks.id, { onDelete: 'cascade' }),
+  taskOrder: integer('task_order').notNull().default(0),
+  dueDate: date('due_date'),
+  priority: varchar('priority', { length: 8 }).default('medium'),
+  labelColor: varchar('label_color', { length: 8 }).default('gray'),
+  labels: text('labels').array().notNull().default([]),
+  attachments: jsonb('attachments').$type<Array<{ url: string; name?: string; mimeType?: string }>>().notNull().default([]),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

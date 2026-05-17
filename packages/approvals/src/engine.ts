@@ -127,6 +127,29 @@ export async function submitApproval(input: SubmitInput): Promise<ApprovalReques
 
   await notifyApprovalEvent({ request: created, event: 'submitted' }).catch(() => undefined);
 
+  // Fire automation engine (fire-and-forget; dynamic import to avoid pkg cycle).
+  try {
+    const mod = await import('@zameen/automations');
+    await mod.fireTrigger({
+      kind: 'approval_submitted',
+      entityId: created.entityId,
+      event: {
+        kind: 'approval_submitted',
+        entityId: created.entityId,
+        occurredAt: new Date(),
+        payload: {
+          approvalRequestId: created.id,
+          approvalType: created.approvalType,
+          amountPkr: created.amountPkr != null ? Number(created.amountPkr) : null,
+          requestedBy: created.requestedBy,
+          sourceModule: created.sourceModule,
+        },
+      },
+    });
+  } catch {
+    // automations package not installed in this context; ignore.
+  }
+
   return created;
 }
 
@@ -223,6 +246,28 @@ export async function decide(input: DecisionInput): Promise<ApprovalRequest> {
           : null;
   if (event) {
     await notifyApprovalEvent({ request: finalRequest, event, comment: input.comment }).catch(() => undefined);
+    try {
+      const mod = await import('@zameen/automations');
+      await mod.fireTrigger({
+        kind: 'approval_decided',
+        entityId: finalRequest.entityId,
+        event: {
+          kind: 'approval_decided',
+          entityId: finalRequest.entityId,
+          occurredAt: new Date(),
+          payload: {
+            approvalRequestId: finalRequest.id,
+            approvalType: finalRequest.approvalType,
+            amountPkr: finalRequest.amountPkr != null ? Number(finalRequest.amountPkr) : null,
+            decision: event,
+            sourceModule: finalRequest.sourceModule,
+            sourceRecordId: finalRequest.sourceRecordId,
+          },
+        },
+      });
+    } catch {
+      // automations not present; skip.
+    }
   }
 
   return finalRequest;

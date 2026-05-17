@@ -323,3 +323,31 @@ Reason. The field PWA was POSTing to three endpoints that did not exist. Buildin
 - Raw extracted text is always stored (`repair_quotes.ocr_extracted_text`, and appended to `diesel_purchases.notes` for diesel) even when confidence is too low to auto-fill. The Approver PWA can render the raw OCR text alongside the photo so a reviewer can cross-check without zooming into a tiny thermal-tape image on their phone.
 - Endpoints are rate-limited at 10 requests / user / minute via a process-local token bucket. Phase 1 is single-instance; we will swap to Upstash once the field PWA scales horizontally.
 - All OpenAI calls are wrapped in a 30s `AbortController` timeout and degrade gracefully to `{ confidence: 0, rawText: '' }` so a Whisper/Vision outage never breaks a diesel purchase submission.
+
+## 2026-05-17, monday-style task management primitives
+
+**Decision.** Extend `zameen.tasks` with parent_task_id, due_date, priority, label_color, labels[], and attachments columns. Add six new tables: task_dependencies, task_time_entries, entity_comments, entity_activity, entity_labels, saved_views. Centralise comments and activity on two generic tables keyed by `(entity_kind, entity_id)` instead of per-module shadow tables.
+
+**Why.** Tasks, approvals, repairs, crop plans, and feasibility studies all want the same three things: threaded comments with @mentions, a chronological activity stream, and labels. Building one table per module duplicates indexes, RLS, and UI components. The generic-keyed approach lets the Approver PWA, ops dashboard, and field PWA share a single CommentThread + ActivityStream component.
+
+**Alternatives considered.** Per-module comment tables (more typing, simpler joins, no advantage at our scale). A polymorphic join table backed by a single text id (rejected, kills FK integrity). Storing labels inline on every record (already done for tasks via `labels text[]`, but new modules will reuse entity_labels for the colour palette).
+
+**Implications.** Cross-module queries are cheap. RLS on entity_comments uses an `authenticated` role check rather than walking back to the source entity for each row; relying on application-level filtering for the moment. Subitems are limited to one level deep deliberately; nested nesting is a UX trap and the data model can be extended later if needed. Soft mention parsing (`@[Name](uuid)`) is done with a regex inside `@zameen/shared/mentions.ts` rather than importing a markdown library. Saved views are user preferences first; sharing is a boolean flag (no granular RBAC) until ops asks for it. Critical-path computation lives in `@zameen/shared/critical-path.ts` and runs on-demand from the Gantt view; we explicitly do not cache it because dependency graphs at AGRI scale finish in well under 50ms.
+
+## 2026-05-17. Automations + dashboard widgets (monday-style)
+
+**Why.** MF runs Zameen the way a small ops team runs monday.com: rules of the form "when X, do Y" are how field reality gets translated into action. Hardcoding those rules per module (notify-on-approve, escalate-on-overdue, fire-on-anomaly) was scattering trigger logic across five packages. The Approver PWA could surface a single "automations" surface where MF (or his accountant) writes new rules without touching code.
+
+**Decisions.**
+
+1. Recipes stored as JSONB, not a DSL. The trigger taxonomy is a fixed enum (12 kinds), conditions are a typed `{field, op, value}` array (ANDed), actions are `{kind, config}`. No DSL parser, no expression language. This keeps the rule surface auditable from a SQL prompt and means the engine is a switch statement on action kind. If users need OR, they author two recipes; that has been good enough in monday too.
+
+2. Phase 1 wires six trigger emitters and defers six. Live: `task_status_change`, `task_created`, `crop_stage_advance`, `comment_added`, `mention_received`, `approval_submitted/decided`. Cron-driven: `task_due_soon`, `task_overdue`, `inventory_low`, `date_arrives` are queued by the `automation-tick` edge function. Deferred: `diesel_anomaly` (existing detector emits to a flag column; needs a lightweight follow-up dispatcher), and per-action OAuth integrations (Slack OK, Google Calendar stub-only).
+
+3. Template gallery on the new-recipe page. Six pre-baked recipes covering the highest-value ag scenarios (fertiliser-applied notify, maturity auto-harvest task, 2-day overdue escalation, diesel anomaly WhatsApp, mandi >500k director approval, tubewell 30-day recheck). One-tap apply, then user edits in place.
+
+4. Dashboards are widget configs stored as JSONB on `user_dashboards.widgets`. No drag-and-drop library: native HTML drag-drop reorders, +/- buttons resize within a 12-column CSS grid. This trades polish for zero bundle weight; if users complain we can swap in react-grid-layout without changing the data shape.
+
+5. Cross-package decoupling. The approvals engine uses a dynamic `import('@zameen/automations')` inside try/catch so the workspace dependency graph remains a DAG (approvals → ., automations → approvals). If the automations package is absent from a deployment, approvals still functions.
+
+**Implications.** Recipe execution is fire-and-forget from the triggering server action. Errors land in `automation_runs.error_message` and the recipe card surfaces a "partial" badge; the user-facing write never fails because an automation misbehaved. Webhook + Slack handlers go out via fetch; failures count toward `automation_runs.status='partial'`. Adding a new trigger kind = update the SQL enum, add it to TRIGGER_KINDS in `@zameen/automations/types.ts`, wire one `fireTrigger` call at the source site, optionally extend `automation-tick` for date-based variants.

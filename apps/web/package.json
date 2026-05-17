@@ -17,6 +17,7 @@
     "@zameen/approvals": "workspace:*",
     "@zameen/finance": "workspace:*",
     "@zameen/locale": "workspace:*",
+    "@zameen/automations": "workspace:*",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.1",
     "@tanstack/react-query": "^5.59.20",

@@ -29,3 +29,4 @@ export * from './components/empty-state.js';
 export * from './components/pending-sync.js';
 export * from './components/confidence-badge.js';
 export * from './components/notifications-bell.js';
+export * from './components/dashboard-grid.js';

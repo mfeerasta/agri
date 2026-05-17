@@ -500,6 +500,13 @@ export const weatherRecords = makeTable('weatherRecords');
 export const marketPrices = makeTable('marketPrices');
 export const offlineSyncQueue = makeTable('offlineSyncQueue');
 
+export const taskDependencies = makeTable('taskDependencies');
+export const taskTimeEntries = makeTable('taskTimeEntries');
+export const entityComments = makeTable('entityComments');
+export const entityActivity = makeTable('entityActivity');
+export const entityLabels = makeTable('entityLabels');
+export const savedViews = makeTable('savedViews');
+
 // ---------- test helpers ----------
 
 export function resetDb(): void {

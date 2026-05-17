@@ -7,3 +7,6 @@ export * from './whatsapp.js';
 export * from './email.js';
 export * from './r2.js';
 export * from './ocr.js';
+export * from './mentions.js';
+export * from './dependency-graph.js';
+export * from './critical-path.js';
