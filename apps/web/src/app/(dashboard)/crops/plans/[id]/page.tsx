@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { db, cropPlans, cropProfiles, fields, cropStageLogs, harvestRecords, inputIssuances } from '@zameen/db';
+import { db, cropPlans, cropProfiles, fields, cropStageLogs, harvestRecords, inputIssuances, cropDiagnostics } from '@zameen/db';
 import { desc, eq, sql } from 'drizzle-orm';
 import { computeFieldPnL } from '@zameen/finance';
 import {
@@ -58,6 +58,13 @@ export default async function CropPlanDetailPage({ params }: { params: Promise<{
   const inputsCost = Number(inputs[0]?.total ?? 0);
 
   const pnl = await computeFieldPnL(id);
+
+  const diagnostics = await db
+    .select()
+    .from(cropDiagnostics)
+    .where(eq(cropDiagnostics.cropPlanId, id))
+    .orderBy(desc(cropDiagnostics.observedOn))
+    .limit(10);
 
   return (
     <div className="space-y-2">
@@ -135,6 +142,39 @@ export default async function CropPlanDetailPage({ params }: { params: Promise<{
                 ))}
               </tbody>
             </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <SectionDivider label="Recent diagnostics" />
+      <Card>
+        <CardContent className="p-0">
+          {diagnostics.length === 0 ? (
+            <EmptyState title="No diagnostics yet" />
+          ) : (
+            <ul>
+              {diagnostics.map((d) => (
+                <li key={d.id} className="border-b border-[var(--rule)] px-5 py-3">
+                  <Link href={`/diagnostics/${d.id}` as never} className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={d.photoUrl} alt="" className="h-12 w-12 rounded object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between">
+                        <span className="truncate font-body">{d.diagnosisLabel ?? 'Unrecognized'}</span>
+                        <span className="tabular text-xs text-slate-500">{fmtDate(d.observedOn)}</span>
+                      </div>
+                      <div className="mt-1 flex gap-2 text-xs text-slate-600">
+                        <span>{d.severity ?? 'unknown'}</span>
+                        <span>·</span>
+                        <span>{d.status}</span>
+                        <span>·</span>
+                        <span className="tabular">{((Number(d.confidence) || 0) * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

@@ -2,11 +2,20 @@ import { NextResponse } from 'next/server';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server/script/deps';
 import { verifyAuthentication } from '../../../../../lib/webauthn';
 import { createSupabaseServiceAuthClient } from '../../../../../lib/supabase/service';
+import { assertSameOrigin, CsrfError } from '../../../../../lib/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request): Promise<NextResponse> {
+  try {
+    assertSameOrigin(req);
+  } catch (error) {
+    if (error instanceof CsrfError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
+    }
+    throw error;
+  }
   const body = (await req.json()) as AuthenticationResponseJSON;
   const result = await verifyAuthentication(body);
   if (!result.ok) return NextResponse.json(result, { status: 400 });

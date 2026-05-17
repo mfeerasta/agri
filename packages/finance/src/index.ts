@@ -6,3 +6,4 @@ export * from './depreciation.js';
 export * from './payroll-divisor.js';
 export * from './reconciliation.js';
 export * from './vendor-scorecard.js';
+export * from './yoy.js';

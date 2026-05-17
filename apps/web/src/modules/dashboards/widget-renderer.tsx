@@ -1,4 +1,4 @@
-import { Card, CardContent, ChartCard, StatBlock, Pkr } from '@zameen/ui';
+import { Card, CardContent, ChartCard, StatBlock, Pkr, DeltaPill } from '@zameen/ui';
 import type { WidgetConfig } from '@zameen/ui';
 
 // Server-side widget renderer. Each kind has its own simple data path.
@@ -43,6 +43,46 @@ export function WidgetRenderer({ widget }: { widget: WidgetConfig }) {
           unit={typeof widget.config.unit === 'string' ? widget.config.unit : undefined}
         />
       );
+    case 'yoy_kpi': {
+      const deltaPct = typeof widget.config.deltaPct === 'number' ? widget.config.deltaPct : null;
+      const desirable = widget.config.desirable === 'low' ? 'low' : 'high';
+      const isMoney = widget.config.format !== 'number';
+      const v = Number(widget.config.value ?? 0);
+      return (
+        <StatBlock
+          label={widget.title}
+          value={isMoney ? <Pkr value={v} /> : String(v)}
+          caption={typeof widget.config.caption === 'string' ? widget.config.caption : undefined}
+          delta={<DeltaPill value={deltaPct} desirable={desirable} />}
+        />
+      );
+    }
+    case 'field_trend_sparkline': {
+      const series = (widget.config.series as Array<{ season: string; value: number }>) ?? [];
+      return (
+        <ChartCard
+          title={widget.title}
+          data={series.map((s) => ({ season: s.season, value: s.value }))}
+          xKey="season"
+          yKey="value"
+          unit={typeof widget.config.unit === 'string' ? widget.config.unit : undefined}
+          height={120}
+        />
+      );
+    }
+    case 'cost_pool_trend': {
+      const series = (widget.config.series as Array<{ season: string; value: number }>) ?? [];
+      return (
+        <ChartCard
+          title={widget.title}
+          data={series.map((s) => ({ season: s.season, value: s.value }))}
+          xKey="season"
+          yKey="value"
+          unit={typeof widget.config.unit === 'string' ? widget.config.unit : 'PKR'}
+          height={180}
+        />
+      );
+    }
     case 'recent_activity':
     case 'approval_queue_preview':
     case 'field_map_mini':

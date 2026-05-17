@@ -7,13 +7,22 @@ import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db, notifications } from '@zameen/db';
 import { getSessionContext } from '../../../../../lib/session';
+import { assertSameOrigin, CsrfError } from '../../../../../lib/csrf';
 
 export const runtime = 'nodejs';
 
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  try {
+    assertSameOrigin(req);
+  } catch (error) {
+    if (error instanceof CsrfError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    throw error;
+  }
   const session = await getSessionContext();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 

@@ -11,6 +11,7 @@ import { db } from '@zameen/db';
 import { stream, HOUSE_STYLE, logAiCall, summarizePrompt } from '@zameen/shared';
 import { getSessionContext } from '@/lib/session';
 import { rateLimit } from '@/lib/rate-limit';
+import { assertSameOrigin, CsrfError } from '@/lib/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,17 @@ const SYSTEM = [
 ].join('\n\n');
 
 export async function POST(req: Request): Promise<Response> {
+  try {
+    assertSameOrigin(req);
+  } catch (error) {
+    if (error instanceof CsrfError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw error;
+  }
   const session = await getSessionContext();
   if (!session) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {

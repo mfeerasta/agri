@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { applySecurityHeaders } from './lib/security-headers';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -23,9 +24,10 @@ export async function middleware(request: NextRequest) {
   if (!data.user && !isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    return applySecurityHeaders(redirect, 'web');
   }
-  return response;
+  return applySecurityHeaders(response, 'web');
 }
 
 export const config = {

@@ -31,6 +31,7 @@ export const users = zameen.table('users', {
   primaryRole: userRoleEnum('primary_role').notNull().default('worker'),
   defaultEntityId: uuid('default_entity_id').references(() => entities.id, { onDelete: 'set null' }),
   preferredLocale: varchar('preferred_locale', { length: 8 }).notNull().default('ur'),
+  notificationPrefs: jsonb('notification_prefs').notNull().default({}),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

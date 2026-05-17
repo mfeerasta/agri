@@ -525,3 +525,95 @@ Button `cva` sizes now include `min-h-[44px]` on mobile (`min-h-[40px]` on `md+`
 ### RTL handling
 
 When `locale === 'ur'` the dashboard layout sets `<html dir="rtl">` and reverses the flex order so the sidebar appears on the right. Tables stay LTR for tabular numbers; only the headers' alignment flips via `dir` inheritance.
+
+## 2026-05-17, Web Push notifications
+
+### Web Push over native push
+
+Picked the W3C Web Push standard (VAPID + `web-push` library) over Firebase Cloud Messaging, OneSignal, or native iOS/Android apps. Same surface area as the existing PWAs — no app-store review, no separate codebase. iOS 16.4+ on Safari ships Web Push for installed PWAs (the user must Add to Home Screen first), which matches how MF uses the Approver app. No vendor lock-in or per-MAU pricing; we own the keypair and talk straight to the user-agent push endpoints (Apple/Google/Mozilla). Cross-platform automatically — desktop Chrome, Android Chrome, iOS PWA all share one path. We own subscription lifecycle (404/410 pruning), encapsulated in `packages/shared/src/push.ts`.
+
+### Per-app push subscriptions
+
+`push_subscriptions` rows carry an `app` column (`web` | `field` | `ops` | `approve`). MF's iPhone is paired with the Approver PWA, so his approval pings go to the `approve` subscription set. Workers using the Field PWA get attendance and task pings to the `field` set. Same person may install multiple PWAs; decision pings should land only on the device used to decide. `sendPushToUser(userId, app, payload)` filters at fan-out time; `app === 'any'` is the fallback when the typed surface has no subscription.
+
+### VAPID keypair, never logged
+
+Private key is read once per process from `ZAMEEN_VAPID_PRIVATE_KEY` and passed to `webpush.setVapidDetails`. Never appears in log output, never sent to the client, never leaves the server runtime. Public key is exposed via `NEXT_PUBLIC_ZAMEEN_VAPID_PUBLIC_KEY` so the EnablePush widget converts it to a Uint8Array for the PushManager. Rotation invalidates every existing subscription, so we only rotate on compromise. Generated via `supabase/scripts/generate-vapid-keys.sh`.
+
+### Opt-in per-event channels, stored as JSONB
+
+`users.notification_prefs` is a JSONB column keyed by event name (`approvalSubmitted`, `approvalDecided`, `mention`, `anomalyDetected`, `escalationReminder`), each pointing at an array of channels (`in_app`, `whatsapp`, `push`, `email`). JSONB beats a separate table because the event taxonomy will keep growing, prefs are always fetched alongside the user row, and defaults ship in the migration's `default ... ::jsonb`. Zod validator on the server action enforces shape; `notify.ts` intersects caller-passed channels with the user's allowed channels per event.
+
+### No server-side badge counter
+
+We do not maintain `notifications.unreadCount` on the server. Each client computes its own badge locally from unread `notifications` rows it can see. iOS doesn't expose `navigator.setAppBadge` to PWAs reliably; when it does, the badge becomes a derived client number. Server counters would require a write on every read, creating contention. The bell already polls `/api/notifications/unread-count`.
+
+### Notification grouping via `tag`
+
+All approval events share `tag = 'zameen-approvals'`. iOS coalesces notifications with the same tag, so a flurry of escalation reminders for the same request does not stack — the latest replaces the earlier. The deep link inside `data.deepLink` still points at the specific approval. OTP pushes use a separate tag (`zameen-otp`) so they never get swallowed.
+
+### `requireInteraction` is high-priority only
+
+Notifications with `priority: 'high'` (new approval requests, escalation reminders, OTP) set `requireInteraction: true` so they stick in the tray until dismissed. Decision events (approved/rejected) and routine info use `priority: 'normal'` and auto-dismiss. Keeps "act now" distinct from "FYI" without a second channel.
+
+### Failure handling: 404/410 prune, 3-strike otherwise
+
+Push endpoints become permanently invalid when the user uninstalls the PWA or revokes permission — those return HTTP 404 or 410 and we delete the row immediately. Transient failures (5xx, network) increment `failure_count`; after three consecutive failures we delete the row. Matches the `web-push` recommended pattern and avoids zombie subscriptions.
+
+## 2026-05-17 Production hardening pass
+
+### CSP with explicit allowlists, not broad rules
+
+CSP per app uses named hosts (Supabase, Mapbox, Sentinel Hub, Anthropic, OpenAI) rather than a wildcard. `script-src` remains `'self' 'unsafe-inline'` because Next.js streams server components inline; we accept that risk because XSS is already foreclosed by React escaping and we have no third-party script tags. Per-app variants live in `apps/*/src/lib/security-headers.ts`. Field + Approve PWAs additionally allow `worker-src 'self' blob:` for the service worker; Web + Ops do not.
+
+### CSRF via Origin header check
+
+All Zameen clients are same-origin SPAs. Bespoke API routes (sync, uploads, notifications, push, ocr, ai, webauthn) gate on a matching `Origin` or `Referer` against the configured `NEXT_PUBLIC_*_URL` envs via `apps/web/src/lib/csrf.ts`. Server Actions get framework-level encrypted IDs and need nothing extra. Rationale: same-site cookies + Origin check is the cheapest robust defence for this topology; tokens-in-headers add no value when we control all callers.
+
+### Rate-limit moved to DB for multi-process Hetzner deploy
+
+In-memory token buckets evaporated across PM2 worker restarts. The new `consume()` in `@zameen/shared/rate-limit` uses `zameen.rate_limit_buckets` with `INSERT ... ON CONFLICT DO UPDATE`. Falls back to memory when `DATABASE_URL` is unset for tests. Migration `0023_rate_limits.sql` creates the table and a purge function.
+
+### audit_log as the always-on tape
+
+`entity_activity` stays module-specific (task comments, document mentions). `zameen.audit_log` is the canonical tape for sensitive mutations: money, approvals, users, fields, recipes, payroll, automations, settings. Helper at `apps/web/src/lib/audit.ts` captures actor, IP, user-agent, before / after diff. Lossy on failure by design — never break the write because audit logging hiccuped.
+
+### Lighthouse budget targets
+
+Allow Mapbox + Recharts in the main bundle because both are needed on the first dashboard paint. We accept a 500KB per-chunk JS budget enforced by `deploy/check-bundle-size.sh`. Lighthouse thresholds: perf 80, a11y 90, BP 90, SEO 80; FCP 2s, LCP 3s, TBT 300ms, CLS 0.1.
+
+### No on-device captcha for Phase 1
+
+Pilot users are a closed cohort of Rupafab employees. Captcha adds friction with no real bot pressure. Revisit once the platform opens to outside contractors.
+
+## 2026-05-17, Year-on-year and multi-season tracking
+
+**Decision.** Add YoY comparison and field-trend dashboards under `/reports/year-over-year`, `/reports/field-trends`, and `/reports/field-matrix`. Aggregation helpers live in `packages/finance/src/yoy.ts`.
+
+**Aggregation strategy.** Server-side SQL aggregation per season (one grouped query per dimension: cost by plan, yield by plan, revenue by plan), not N+1 calls to `computeFieldPnL`. This keeps a full YoY render under one round-trip per metric and scales linearly with crop plans rather than quadratically.
+
+**Season label as string column.** `crop_plans.season_label` stays a free-text `varchar(32)` (e.g. "Rabi 2025-26"). Seasons are open-ended and overlap calendar years, so a separate `seasons` table or foreign key would force us to assign dates we don't always have. Sort order in YoY pages comes from `max(created_at)` per season, not from parsing the label.
+
+**Trend direction = OLS slope on margin/acre.** `computeFieldRollingTrend` derives `improving` / `declining` / `flat` from a simple least-squares slope across the last N seasons of margin/acre. The flat band is `|slope| <= max(1, |meanY| * 0.02)`. Robust enough for 3-7 data points without pulling in a stats library.
+
+**5-year rolling default.** Matches CLAUDE.md spec and Rupafab's planning horizon. Clamped to `[2, 10]` years; the matrix view truncates from the most-recent end.
+
+**Benchmarks come from `crop_profiles.yieldBenchmarkPerAcre`.** Single source of truth that already drives seasonal-review variance. YoY pages compute `yieldVsBenchmarkPct` against the same value to avoid two different yardsticks across reports.
+
+**No incremental cache.** Seasons close once a year. Pages are `force-dynamic` and recompute on each load. Caching adds complexity for a workload that already runs in well under a second on the pilot's data volume; revisit once we have 100+ fields or 10+ seasons of history.
+
+## 2026-05-17, Crop disease photo classifier (Phase 2)
+
+**Claude vision over Plant.id API.** Claude 3.5 Sonnet vision gives us multilingual reasoning, custom system-prompt grounding on Punjab pests and diseases, and bilingual treatment text in one shot. Plant.id has solid identification but no IPM guidance, no Urdu output, and uneven coverage of common Punjab crops (rust strains, citrus greening, CLCuV). Cost per image is comparable. Deferring a fine-tuned vision model to Phase 3 once we accumulate confirmed-diagnosis labels.
+
+**Confidence 0.5 default, always-show review actions.** We never auto-treat. Every diagnostic starts in `pending_review` and surfaces confirm / dismiss / treated / resolved actions. Below 0.5 we show "Unclear" and route to supervisor review. Auto-treating would risk wasted sprays and worker safety.
+
+**Bilingual treatment text (en + ur) in one row.** Field workers read the Urdu version; supervisors and MF read the English. Storing both columns avoids translation drift and a separate i18n pipeline. The Claude prompt enforces a plain Urdu translation, no Roman Urdu mixing.
+
+**Severity workflow.** `pending_review -> confirmed | dismissed -> treated -> resolved`. Dismissed is terminal. Treated keeps the record open for a follow-up check; resolved closes it. Status is a free text column (not an enum) to avoid migration friction during Phase 2 iteration.
+
+**Static reference library to ground Claude.** `packages/shared/src/lib/punjab-crop-diseases.json` ships ~30 named entries covering wheat rusts and smut, maize stem borer and fall armyworm, cotton bollworm, whitefly, CLCuV, rice blast and BPH, sugarcane top borer and red rot, citrus canker and greening, and the common N/P/K/Zn/B deficiencies. The list is fed into the system prompt filtered by crop. This reduces hallucinated labels without locking the model to a fixed taxonomy.
+
+**Backfill via dedicated edge function.** `supabase/functions/diagnostics-backfill/index.ts` walks `crop_stage_logs.photo_urls` and inserts a diagnostic per photo, skipping already-diagnosed URLs. The web `/api/diagnostics/backfill` does a smaller in-process 100-photo run for interactive use. Running larger backfills inside Next.js would tie up serverless connections during the slow Claude calls.
+
+**Diagnostics scoped through field RLS.** The `diag_via_field` policy walks `fields -> blocks -> farms` to check `accessible_entity_ids(auth.uid())`. No separate diagnostics-level grants. Matches every other field-scoped table in the schema.

@@ -23,3 +23,5 @@ export * from './entity-labels.js';
 export * from './saved-views.js';
 export * from './automations.js';
 export * from './ndvi.js';
+export * from './push-subscriptions.js';
+export * from './crop-diagnostics.js';

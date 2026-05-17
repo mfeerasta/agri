@@ -13,3 +13,4 @@ export * from './compliance.js';
 export * from './finance.js';
 export * from './ocr.js';
 export * from './feasibility.js';
+export * from './crop-diagnostics.js';

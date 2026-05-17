@@ -1,0 +1,246 @@
+{
+  "version": "2026-05",
+  "context": "Common pests, diseases, and nutrient disorders in Punjab (Pakistan) agriculture. Use as reference labels only. Not authoritative.",
+  "entries": [
+    {
+      "label": "Wheat yellow rust (Puccinia striiformis)",
+      "labelUr": "گندم کا پیلا کنگی",
+      "crops": ["wheat"],
+      "symptoms": "Yellow to orange pustules in stripes along leaf veins, more on upper leaves. Pustules powdery, rub off on finger.",
+      "ipm": "Plant resistant varieties. Avoid late sowing. Balanced nitrogen, avoid over-application.",
+      "chemical": "Tebuconazole 250 EC at 250 ml/acre, or Propiconazole 250 EC at 200 ml/acre. Spray on first appearance and repeat after 12 to 15 days if needed."
+    },
+    {
+      "label": "Wheat brown rust (Puccinia triticina)",
+      "labelUr": "گندم کا بھورا کنگی",
+      "crops": ["wheat"],
+      "symptoms": "Small round orange-brown pustules scattered randomly on upper leaf surface, no striping.",
+      "ipm": "Resistant varieties. Time sowing early. Remove volunteer plants between seasons.",
+      "chemical": "Propiconazole 25 EC at 200 ml/acre or Tebuconazole 25 EC at 250 ml/acre."
+    },
+    {
+      "label": "Wheat loose smut (Ustilago tritici)",
+      "labelUr": "گندم کی کالی کنگی",
+      "crops": ["wheat"],
+      "symptoms": "Black powdery mass replaces grain in the spike. Spikes appear blackened then bare rachis remains.",
+      "ipm": "Seed treatment is the only effective control. Source clean seed from certified suppliers.",
+      "chemical": "Treat seed with Carboxin 75 WP at 2.5 g per kg seed or Tebuconazole 2 DS at 1.5 g per kg seed."
+    },
+    {
+      "label": "Wheat aphids (Sitobion avenae, Rhopalosiphum padi)",
+      "labelUr": "گندم کا تیلا",
+      "crops": ["wheat"],
+      "symptoms": "Small green or black insects clustered on leaves and ears. Honeydew, sooty mold, stunted growth.",
+      "ipm": "Encourage ladybird beetles. Spray neem oil for early infestation. Avoid excess nitrogen.",
+      "chemical": "Imidacloprid 25 WP at 50 g/acre or Acetamiprid 20 SP at 60 g/acre when aphids exceed 5 per ear head."
+    },
+    {
+      "label": "Maize stem borer (Chilo partellus)",
+      "labelUr": "مکئی کا تنا چھیدک",
+      "crops": ["maize"],
+      "symptoms": "Pinhole shotholes on young leaves, dead heart in seedlings, tunnels in stem, holes near nodes.",
+      "ipm": "Destroy crop residues. Trichogramma egg parasitoids. Light traps. Resistant varieties.",
+      "chemical": "Carbofuran 3G at 8 kg/acre into whorl 15 to 20 days after germination, or Chlorantraniliprole 20 SC at 50 ml/acre as foliar spray."
+    },
+    {
+      "label": "Fall armyworm (Spodoptera frugiperda) on maize",
+      "labelUr": "مکئی کا گرتا بکریا",
+      "crops": ["maize"],
+      "symptoms": "Whorl damage, ragged feeding on leaves, frass (sawdust-like) in whorl, late stage feeds on cobs.",
+      "ipm": "Pheromone traps. Hand-pick egg masses. Neem at early stage. Trichogramma releases.",
+      "chemical": "Emamectin benzoate 5 SG at 80 g/acre, or Chlorantraniliprole 20 SC at 50 ml/acre, or Spinetoram 12 SC at 80 ml/acre directed into whorl."
+    },
+    {
+      "label": "Maize downy mildew (Peronosclerospora sorghi)",
+      "labelUr": "مکئی کی نیچے والی پھپھوندی",
+      "crops": ["maize"],
+      "symptoms": "Chlorotic streaks on leaves, downy white growth on underside in humid weather, stunted plants.",
+      "ipm": "Resistant varieties. Avoid waterlogging. Rogue infected plants early.",
+      "chemical": "Seed treatment with Metalaxyl 35 WS at 6 g per kg seed. Foliar Mancozeb 75 WP at 600 g/acre."
+    },
+    {
+      "label": "Cotton bollworm (Helicoverpa armigera, Pectinophora gossypiella)",
+      "labelUr": "کپاس کا سنڈی",
+      "crops": ["cotton"],
+      "symptoms": "Circular holes in bolls, rosette flowers (pink bollworm), shed squares and small bolls, larvae inside bolls.",
+      "ipm": "Bt cotton varieties. Pheromone traps. Trichogramma. Destroy stubble after harvest.",
+      "chemical": "Emamectin benzoate 5 SG at 80 g/acre or Spinosad 240 SC at 60 ml/acre. Rotate modes of action."
+    },
+    {
+      "label": "Cotton whitefly (Bemisia tabaci)",
+      "labelUr": "کپاس کی سفید مکھی",
+      "crops": ["cotton"],
+      "symptoms": "Tiny white insects on leaf undersides, honeydew, sooty mold, yellow leaves, CLCuV vector.",
+      "ipm": "Yellow sticky traps. Avoid nitrogen excess. Plant trap crops. Encourage Encarsia parasitoids.",
+      "chemical": "Diafenthiuron 50 WP at 200 g/acre or Pyriproxyfen 10.8 EC at 200 ml/acre. Avoid synthetic pyrethroids that flare whitefly."
+    },
+    {
+      "label": "Cotton leaf curl virus (CLCuV)",
+      "labelUr": "کپاس کا پتہ مرڑ وائرس",
+      "crops": ["cotton"],
+      "symptoms": "Upward curling of leaves, vein thickening and darkening, enations on underside, stunted growth. Spread by whitefly.",
+      "ipm": "Resistant or tolerant varieties. Aggressive whitefly control. Remove infected plants. Avoid late sowing.",
+      "chemical": "No direct cure. Manage whitefly vector with Pyriproxyfen 10.8 EC at 200 ml/acre."
+    },
+    {
+      "label": "Cotton jassid (Amrasca biguttula)",
+      "labelUr": "کپاس کا جسد",
+      "crops": ["cotton"],
+      "symptoms": "Leaf margins yellow then bronze and curl downward. Plant stunted, hopperburn.",
+      "ipm": "Hairy-leaf varieties. Conserve predators. Avoid synthetic pyrethroids early.",
+      "chemical": "Imidacloprid 25 WP at 50 g/acre or Acetamiprid 20 SP at 60 g/acre."
+    },
+    {
+      "label": "Rice blast (Magnaporthe oryzae)",
+      "labelUr": "چاول کا بلاسٹ",
+      "crops": ["rice"],
+      "symptoms": "Diamond-shaped lesions with gray centers and brown borders on leaves. Neck blast blackens panicle base.",
+      "ipm": "Resistant varieties. Avoid excess nitrogen. Balanced silica. Drain field briefly at tillering.",
+      "chemical": "Tricyclazole 75 WP at 120 g/acre at early heading. Repeat after 14 days if pressure persists."
+    },
+    {
+      "label": "Rice brown plant hopper (Nilaparvata lugens)",
+      "labelUr": "چاول کا بھورا تیلا",
+      "crops": ["rice"],
+      "symptoms": "Yellowing then drying patches (hopperburn). Sticky honeydew at base of tillers. Insects hop when disturbed.",
+      "ipm": "Drain field for 3 to 4 days. Avoid blanket pyrethroids. Conserve spiders and mirid bugs.",
+      "chemical": "Pymetrozine 50 WG at 60 g/acre or Buprofezin 25 WP at 400 g/acre directed at plant base."
+    },
+    {
+      "label": "Rice stem borer (Scirpophaga incertulas)",
+      "labelUr": "چاول کا تنا چھیدک",
+      "crops": ["rice"],
+      "symptoms": "Dead heart in vegetative stage, whitehead (empty panicle) at heading.",
+      "ipm": "Pheromone traps. Trichogramma at 50,000 per acre. Destroy stubble.",
+      "chemical": "Cartap hydrochloride 4G at 8 kg/acre or Chlorantraniliprole 20 SC at 50 ml/acre."
+    },
+    {
+      "label": "Sugarcane top borer (Scirpophaga excerptalis)",
+      "labelUr": "گنے کا اوپری چھیدک",
+      "crops": ["sugarcane"],
+      "symptoms": "Dead heart of top whorl, bunchy top in older canes, exit holes near growing point.",
+      "ipm": "Set treatment. Trichogramma. Detrash regularly. Burn stubble.",
+      "chemical": "Chlorantraniliprole 18.5 SC at 150 ml/acre as soil drench, or Cartap 4G at 8 kg/acre."
+    },
+    {
+      "label": "Sugarcane smut (Sporisorium scitamineum)",
+      "labelUr": "گنے کا کالا کنگ",
+      "crops": ["sugarcane"],
+      "symptoms": "Long black whip-like emergence from top of cane, thin tillers, reduced juice.",
+      "ipm": "Hot water treatment of seed setts at 50 C for 2 hours. Resistant varieties. Rogue infected stools.",
+      "chemical": "Carbendazim 50 WP soak setts at 1 g/L for 10 minutes before planting."
+    },
+    {
+      "label": "Citrus canker (Xanthomonas citri)",
+      "labelUr": "کنو کا کینکر",
+      "crops": ["citrus"],
+      "symptoms": "Raised corky brown lesions with yellow halo on leaves, fruits, twigs. Premature fruit drop.",
+      "ipm": "Prune and burn infected wood. Windbreaks to reduce splash spread. Avoid leaf miner (entry wounds).",
+      "chemical": "Copper oxychloride 50 WP at 500 g/acre every 14 days during wet weather. Add streptomycin 100 ppm for severe infections."
+    },
+    {
+      "label": "Citrus greening (HLB, Candidatus Liberibacter)",
+      "labelUr": "کنو کی ہریالی بیماری",
+      "crops": ["citrus"],
+      "symptoms": "Asymmetric leaf yellowing (blotchy mottle), lopsided bitter fruit, twig dieback. Spread by Asian citrus psyllid.",
+      "ipm": "Remove infected trees. Manage psyllid aggressively. Use certified disease-free nursery stock.",
+      "chemical": "No cure. Manage psyllid with Imidacloprid 25 WP at 50 g/acre or soil-applied Thiamethoxam."
+    },
+    {
+      "label": "Citrus leaf miner (Phyllocnistis citrella)",
+      "labelUr": "کنو کا پتہ کھرچنے والا",
+      "crops": ["citrus"],
+      "symptoms": "Silvery serpentine mines in young leaves, leaves curl and distort, secondary canker entry.",
+      "ipm": "Prune to synchronize flush. Conserve Ageniaspis parasitoid.",
+      "chemical": "Abamectin 1.8 EC at 60 ml/acre with horticultural mineral oil during flush."
+    },
+    {
+      "label": "Nitrogen deficiency",
+      "labelUr": "نائٹروجن کی کمی",
+      "crops": ["wheat", "maize", "rice", "cotton", "sugarcane", "citrus"],
+      "symptoms": "Uniform pale green to yellow on older leaves first. Stunted plants, thin tillers, slow growth.",
+      "ipm": "Soil test. Side-dress urea. Split nitrogen applications.",
+      "chemical": "Urea (46-0-0) at 50 to 75 kg/acre split, or foliar urea spray at 1 to 2 percent solution."
+    },
+    {
+      "label": "Phosphorus deficiency",
+      "labelUr": "فاسفورس کی کمی",
+      "crops": ["wheat", "maize", "rice", "cotton"],
+      "symptoms": "Purple to reddish tint on older leaves, especially in cold weather. Poor root growth, delayed maturity.",
+      "ipm": "Soil test. Band-place DAP near seed at sowing. Avoid surface broadcast.",
+      "chemical": "DAP (18-46-0) at 50 kg/acre at sowing, banded 5 cm below seed."
+    },
+    {
+      "label": "Potassium deficiency",
+      "labelUr": "پوٹاش کی کمی",
+      "crops": ["wheat", "maize", "rice", "cotton", "sugarcane"],
+      "symptoms": "Yellowing and browning of leaf margins on older leaves, scorched edges, weak stalks, lodging.",
+      "ipm": "Soil test for K. Apply muriate of potash before high demand stages.",
+      "chemical": "Sulphate of potash (50-0-0-18S) at 25 kg/acre, or muriate of potash (0-0-60) at 25 kg/acre."
+    },
+    {
+      "label": "Zinc deficiency",
+      "labelUr": "زنک کی کمی",
+      "crops": ["rice", "maize", "wheat", "citrus"],
+      "symptoms": "Interveinal chlorosis on young leaves, shortened internodes, rosette in citrus, white bud in maize.",
+      "ipm": "Apply zinc sulphate at land prep. Foliar correction faster than soil.",
+      "chemical": "Zinc sulphate 33 percent at 10 kg/acre soil, or foliar 0.5 percent solution at tillering."
+    },
+    {
+      "label": "Boron deficiency",
+      "labelUr": "بوران کی کمی",
+      "crops": ["cotton", "citrus", "wheat"],
+      "symptoms": "Hollow stems, distorted young leaves, cracked stems, shedding of squares (cotton), corky fruit.",
+      "ipm": "Soil test before applying. Toxicity range narrow.",
+      "chemical": "Borax (Solubor) foliar 0.25 percent at flowering and boll formation."
+    },
+    {
+      "label": "Iron deficiency chlorosis",
+      "labelUr": "لوہے کی کمی",
+      "crops": ["citrus", "rice"],
+      "symptoms": "Interveinal yellowing on youngest leaves, veins remain green. In citrus, entire canopy may yellow.",
+      "ipm": "Improve drainage. Avoid lime-induced chlorosis. Soil pH below 7 ideal.",
+      "chemical": "Iron sulphate 0.5 percent foliar with citric acid, or chelated Fe-EDDHA soil applied."
+    },
+    {
+      "label": "Cotton bacterial blight (Xanthomonas axonopodis pv. malvacearum)",
+      "labelUr": "کپاس کا جراثیمی جھلساؤ",
+      "crops": ["cotton"],
+      "symptoms": "Angular water-soaked spots on leaves bounded by veins, black arm on stems, boll rot.",
+      "ipm": "Acid-delinted seed. Resistant varieties. Avoid overhead irrigation.",
+      "chemical": "Copper oxychloride 50 WP at 500 g/acre with streptomycin 100 ppm."
+    },
+    {
+      "label": "Rice sheath blight (Rhizoctonia solani)",
+      "labelUr": "چاول کی نیام جھلسن",
+      "crops": ["rice"],
+      "symptoms": "Oval grayish lesions on leaf sheath at waterline with brown border, lesions enlarge upward.",
+      "ipm": "Avoid dense planting and excess nitrogen. Drain briefly. Resistant varieties.",
+      "chemical": "Hexaconazole 5 EC at 400 ml/acre or Validamycin 3 L at 500 ml/acre at booting."
+    },
+    {
+      "label": "Wheat karnal bunt (Tilletia indica)",
+      "labelUr": "گندم کا کرنل بنٹ",
+      "crops": ["wheat"],
+      "symptoms": "Partial bunt: a few grains in head replaced by black powdery sori, fishy odor when crushed.",
+      "ipm": "Resistant varieties. Avoid irrigation at flowering if disease was present prior season.",
+      "chemical": "Seed treatment Carboxin 75 WP at 2.5 g per kg seed. Foliar Propiconazole 25 EC at flowering if pressure high."
+    },
+    {
+      "label": "Sugarcane red rot (Colletotrichum falcatum)",
+      "labelUr": "گنے کا لال سڑن",
+      "crops": ["sugarcane"],
+      "symptoms": "Drooping yellowing crown, internal stalk red with white cross-bands, sour smell.",
+      "ipm": "Resistant varieties. Hot water treat setts at 50 C for 2 hours. Rotate crop for 2 years.",
+      "chemical": "Carbendazim 50 WP sett dip at 1 g/L for 15 minutes."
+    },
+    {
+      "label": "Generic abiotic stress (drought, waterlogging, heat)",
+      "labelUr": "موسمی دباؤ",
+      "crops": ["wheat", "maize", "rice", "cotton", "sugarcane", "citrus"],
+      "symptoms": "Wilting, leaf rolling, marginal scorch, premature senescence. No pathogen signs (no pustules, lesions, insects).",
+      "ipm": "Irrigation scheduling. Mulching. Avoid spraying during heat. Check for waterlogging or salinity.",
+      "chemical": "Not applicable. Address root cause (water, drainage, salinity)."
+    }
+  ]
+}

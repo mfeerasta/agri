@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@zameen/db';
 import { getFieldSession } from '../../../lib/session';
 import { dispatch, type DispatchResult } from '../../../server/sync-dispatcher';
+import { assertSameOrigin, CsrfError } from '../../../lib/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,14 @@ async function recordIdempotent(key: string, userId: string, response: DispatchR
 }
 
 export async function POST(req: Request): Promise<Response> {
+  try {
+    assertSameOrigin(req);
+  } catch (error) {
+    if (error instanceof CsrfError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
+    }
+    throw error;
+  }
   const session = await getFieldSession();
   if (!session) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });

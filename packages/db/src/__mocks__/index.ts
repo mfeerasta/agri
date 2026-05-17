@@ -426,6 +426,7 @@ export const cropProfiles = makeTable('cropProfiles');
 export const cropPlans = makeTable('cropPlans');
 export const cropStageLogs = makeTable('cropStageLogs');
 export const harvestRecords = makeTable('harvestRecords');
+export const cropDiagnostics = makeTable('cropDiagnostics');
 
 export const inputs = makeTable('inputs');
 export const inputPurchases = makeTable('inputPurchases');
@@ -507,6 +508,7 @@ export const entityComments = makeTable('entityComments');
 export const entityActivity = makeTable('entityActivity');
 export const entityLabels = makeTable('entityLabels');
 export const savedViews = makeTable('savedViews');
+export const pushSubscriptions = makeTable('pushSubscriptions');
 
 // ---------- test helpers ----------
 

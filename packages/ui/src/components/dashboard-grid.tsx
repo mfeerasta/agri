@@ -12,6 +12,9 @@ export const WIDGET_KINDS = [
   'field_map_mini',
   'approval_queue_preview',
   'cash_position',
+  'yoy_kpi',
+  'field_trend_sparkline',
+  'cost_pool_trend',
 ] as const;
 export type WidgetKind = (typeof WIDGET_KINDS)[number];
 

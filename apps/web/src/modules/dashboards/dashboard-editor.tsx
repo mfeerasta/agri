@@ -15,6 +15,9 @@ const DEFAULT_TITLES: Record<WidgetKind, string> = {
   field_map_mini: 'Fields',
   approval_queue_preview: 'Pending approvals',
   cash_position: 'Cash position',
+  yoy_kpi: 'YoY KPI',
+  field_trend_sparkline: 'Field trend',
+  cost_pool_trend: 'Cost pool trend',
 };
 
 const DEFAULT_SIZE: Record<WidgetKind, { w: number; h: number }> = {
@@ -27,6 +30,9 @@ const DEFAULT_SIZE: Record<WidgetKind, { w: number; h: number }> = {
   field_map_mini: { w: 6, h: 4 },
   approval_queue_preview: { w: 6, h: 3 },
   cash_position: { w: 3, h: 2 },
+  yoy_kpi: { w: 3, h: 2 },
+  field_trend_sparkline: { w: 4, h: 2 },
+  cost_pool_trend: { w: 6, h: 3 },
 };
 
 export interface DashboardEditorProps {

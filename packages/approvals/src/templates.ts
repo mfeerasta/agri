@@ -45,6 +45,10 @@ export interface ApprovalTemplate {
   inAppTitle(input: TemplateRenderInput): string;
   inAppBody(input: TemplateRenderInput): string;
   deepLink(request: ApprovalRequest): string;
+  pushTitle(input: TemplateRenderInput): string;
+  pushBody(input: TemplateRenderInput): string;
+  pushTag(request: ApprovalRequest): string;
+  pushPriority(input: TemplateRenderInput): 'normal' | 'high';
 }
 
 const DEEP_GREEN = '#1B4332';
@@ -153,6 +157,25 @@ const approvalRequestTemplate: ApprovalTemplate = {
     return `${localizedTitle(request, locale)} · ${formatAmount(request)}`;
   },
   deepLink: deepLinkApproval,
+  pushTitle(input): string {
+    const { request, locale } = input;
+    return locale === 'ur'
+      ? `منظوری درکار: ${request.approvalType}`
+      : `Approval needed: ${request.approvalType}`;
+  },
+  pushBody(input): string {
+    const { request, locale, requesterName } = input;
+    const who = requesterName ?? (locale === 'ur' ? 'ٹیم رکن' : 'A team member');
+    return locale === 'ur'
+      ? `${who} نے ${formatAmount(request)} کی درخواست بھیجی`
+      : `${who} submitted ${formatAmount(request)}`;
+  },
+  pushTag(): string {
+    return 'zameen-approvals';
+  },
+  pushPriority(): 'normal' | 'high' {
+    return 'high';
+  },
 };
 
 const approvalDecisionTemplate: ApprovalTemplate = {
@@ -207,6 +230,23 @@ const approvalDecisionTemplate: ApprovalTemplate = {
     return localizedTitle(input.request, input.locale);
   },
   deepLink: deepLinkApproval,
+  pushTitle(input): string {
+    const { request, event, decision, locale } = input;
+    const final = decision ?? (event === 'approved' ? 'approved' : event === 'rejected' ? 'rejected' : 'sent_back');
+    const verb = decisionVerb(final, locale);
+    return locale === 'ur'
+      ? `${request.approvalType} ${verb}`
+      : `${request.approvalType} ${verb}`;
+  },
+  pushBody(input): string {
+    return `${localizedTitle(input.request, input.locale)} · ${formatAmount(input.request)}`;
+  },
+  pushTag(): string {
+    return 'zameen-approvals';
+  },
+  pushPriority(): 'normal' | 'high' {
+    return 'normal';
+  },
 };
 
 const escalationReminderTemplate: ApprovalTemplate = {
@@ -259,6 +299,25 @@ const escalationReminderTemplate: ApprovalTemplate = {
     return `${ageLabel} · ${formatAmount(request)}`;
   },
   deepLink: deepLinkApproval,
+  pushTitle(input): string {
+    const { request, locale } = input;
+    return locale === 'ur'
+      ? `یاد دہانی: ${request.approvalType}`
+      : `Reminder: ${request.approvalType}`;
+  },
+  pushBody(input): string {
+    const { request, ageHours, locale } = input;
+    const age = Math.max(1, Math.round(ageHours ?? 24));
+    return locale === 'ur'
+      ? `${age} گھنٹے سے زیرِ التواء · ${formatAmount(request)}`
+      : `Pending ${age}h · ${formatAmount(request)}`;
+  },
+  pushTag(): string {
+    return 'zameen-approvals';
+  },
+  pushPriority(): 'normal' | 'high' {
+    return 'high';
+  },
 };
 
 const otpTemplate: ApprovalTemplate = {
@@ -281,6 +340,18 @@ const otpTemplate: ApprovalTemplate = {
   },
   deepLink(): string {
     return deepLinkLogin();
+  },
+  pushTitle(): string {
+    return 'Zameen login code';
+  },
+  pushBody(): string {
+    return 'Your one-time login code is on the way.';
+  },
+  pushTag(): string {
+    return 'zameen-otp';
+  },
+  pushPriority(): 'normal' | 'high' {
+    return 'high';
   },
 };
 

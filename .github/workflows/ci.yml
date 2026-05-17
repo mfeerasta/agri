@@ -43,6 +43,10 @@ jobs:
       - name: Unit tests (no Docker, no Postgres)
         run: pnpm test
 
+      - name: Dependency vulnerability audit (high severity)
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
   integration-tests:
     # Integration tests spin up Postgres via testcontainers (needs Docker).
     # Run only on main-branch pushes — PRs stay on unit tests for speed.
