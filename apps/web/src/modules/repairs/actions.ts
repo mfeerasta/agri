@@ -4,7 +4,7 @@ import { repairRequestSchema, repairQuoteSchema, repairQuoteSelectionSchema, rep
 import { DEFAULT_APPROVAL_THRESHOLDS_PKR } from '@zameen/shared';
 import { db, repairRequests, repairQuotes, repairWorkOrders } from '@zameen/db';
 import { eq } from 'drizzle-orm';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { getSessionContext } from '@/lib/session';
 
 type Result = { ok: true; id: string } | { ok: false; error: string };
@@ -58,6 +58,7 @@ export async function submitRepairQuote(raw: unknown): Promise<Result> {
       etaDays: data.etaDays?.toString() ?? null,
       warrantyDays: data.warrantyDays?.toString() ?? null,
       quoteDocumentUrls: data.quoteDocumentUrls,
+      ocrExtractedText: data.ocrExtractedText ?? null,
     })
     .returning();
   revalidatePath(`/repairs/${data.repairRequestId}`);
@@ -91,6 +92,19 @@ export async function selectRepairQuote(raw: unknown): Promise<Result> {
     (thresholds.farm_manager !== null && amountPkr > thresholds.farm_manager);
 
   if (needsApproval) {
+    const payload = {
+      repairRequestId: req!.id,
+      selectedQuoteId: quote!.id,
+      quote,
+      workshopName: quote!.workshopName,
+    };
+    const contextSnapshot = await buildFullContext({
+      entityId: req!.entityId,
+      approvalType: 'repair',
+      payload,
+      requesterUserId: ctx.userId,
+      sourceModule: 'repair',
+    });
     await submitApproval({
       entityId: req!.entityId,
       approvalType: 'repair',
@@ -98,7 +112,8 @@ export async function selectRepairQuote(raw: unknown): Promise<Result> {
       sourceRecordId: req!.id,
       title: `Repair: ${req!.requestNumber} via ${quote!.workshopName}`,
       amountPkr,
-      payload: { repairRequestId: req!.id, selectedQuoteId: quote!.id, quote: quote },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });

@@ -41,16 +41,20 @@ Deno.serve(async () => {
       if (!recipients.includes(d.user_id)) recipients.push(d.user_id);
     }
 
+    const ageHours = r.submitted_at
+      ? Math.round((Date.now() - new Date(r.submitted_at).getTime()) / 36e5)
+      : 24;
+    const approveBase = Deno.env.get('NEXT_PUBLIC_APPROVE_URL') ?? 'https://approve.agri.feerasta.ai';
     for (const userId of recipients) {
-      await supabase.from('notifications').insert({
+      await supabase.schema('zameen').from('notifications').insert({
         recipient_id: userId,
         entity_id: r.entity_id,
-        channel: 'whatsapp',
-        category: 'approval_escalation',
-        title: `Approval pending > 24h: ${r.title}`,
-        body: `Request ${r.id} is in state ${r.state}. Amount: PKR ${r.amount_pkr ?? '0'}.`,
-        deep_link: `https://approve.agri.feerasta.ai/requests/${r.id}`,
-        payload: { approvalId: r.id, state: r.state },
+        channel: 'in_app',
+        category: 'approval_event',
+        title: `Reminder: ${r.title} pending ${ageHours}h`,
+        body: `Approval is ${ageHours}h old. Amount: PKR ${r.amount_pkr ?? '0'}.`,
+        deep_link: `${approveBase}/${r.id}`,
+        payload: { approvalRequestId: r.id, event: 'escalation_reminder', ageHours },
       });
       nudged += 1;
     }

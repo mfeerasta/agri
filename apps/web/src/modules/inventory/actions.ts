@@ -22,7 +22,7 @@ import {
   assets,
   assetHourMeters,
 } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { allocateCost } from '@zameen/finance';
 import { getSessionContext } from '@/lib/session';
 
@@ -84,6 +84,14 @@ export async function createInputPurchase(raw: unknown): Promise<Result> {
   const needsApproval =
     (t.supervisor !== null && amount > t.supervisor) || (t.farm_manager !== null && amount > t.farm_manager);
   if (needsApproval) {
+    const payload = { inputPurchaseId: row!.id, ...d };
+    const contextSnapshot = await buildFullContext({
+      entityId: d.entityId,
+      approvalType: 'input_purchase',
+      payload: payload as Record<string, unknown>,
+      requesterUserId: ctx.userId,
+      sourceModule: 'inventory',
+    });
     await submitApproval({
       entityId: d.entityId,
       approvalType: 'input_purchase',
@@ -91,7 +99,8 @@ export async function createInputPurchase(raw: unknown): Promise<Result> {
       sourceRecordId: row!.id,
       title: `Input purchase ${d.quantity} units`,
       amountPkr: amount,
-      payload: { inputPurchaseId: row!.id, ...d },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });
@@ -219,6 +228,14 @@ export async function createAsset(raw: unknown): Promise<Result> {
 
   const amount = Number(d.purchasePricePkr);
   if (amount > 0) {
+    const payload = { assetId: row!.id, ...d };
+    const contextSnapshot = await buildFullContext({
+      entityId: d.entityId,
+      approvalType: 'asset_purchase',
+      payload: payload as Record<string, unknown>,
+      requesterUserId: ctx.userId,
+      sourceModule: 'inventory',
+    });
     await submitApproval({
       entityId: d.entityId,
       approvalType: 'asset_purchase',
@@ -226,7 +243,8 @@ export async function createAsset(raw: unknown): Promise<Result> {
       sourceRecordId: row!.id,
       title: `Asset purchase: ${d.make ?? ''} ${d.model ?? ''} (${d.category})`,
       amountPkr: amount,
-      payload: { assetId: row!.id, ...d },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });

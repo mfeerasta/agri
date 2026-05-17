@@ -18,7 +18,7 @@ import {
   healthEvents,
   feedRecords,
 } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { allocateCost } from '@zameen/finance';
 import { getSessionContext } from '@/lib/session';
 
@@ -50,6 +50,14 @@ export async function createAnimal(raw: unknown): Promise<R> {
     .returning();
 
   if (data.acquisitionPricePkr) {
+    const payload = { animalId: row!.id, ...data };
+    const contextSnapshot = await buildFullContext({
+      entityId: data.entityId,
+      approvalType: 'livestock_purchase',
+      payload: payload as Record<string, unknown>,
+      requesterUserId: ctx.userId,
+      sourceModule: 'livestock',
+    });
     await submitApproval({
       entityId: data.entityId,
       approvalType: 'livestock_purchase',
@@ -57,7 +65,8 @@ export async function createAnimal(raw: unknown): Promise<R> {
       sourceRecordId: row!.id,
       title: `Livestock purchase ${data.species} ${data.earTag}`,
       amountPkr: Number(data.acquisitionPricePkr),
-      payload: { animalId: row!.id, ...data },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });
@@ -203,6 +212,13 @@ export async function submitLivestockSale(raw: unknown): Promise<R> {
   if (!ctx) return { ok: false, error: 'Not authenticated' };
 
   await db.update(animals).set({ status: 'sold' }).where(eq(animals.id, data.animalId));
+  const contextSnapshot = await buildFullContext({
+    entityId: data.entityId,
+    approvalType: 'livestock_sale',
+    payload: data as Record<string, unknown>,
+    requesterUserId: ctx.userId,
+    sourceModule: 'livestock',
+  });
   await submitApproval({
     entityId: data.entityId,
     approvalType: 'livestock_sale',
@@ -211,6 +227,7 @@ export async function submitLivestockSale(raw: unknown): Promise<R> {
     title: `Livestock sale to ${data.buyer}`,
     amountPkr: Number(data.salePricePkr),
     payload: data,
+    contextSnapshot,
     requestedBy: ctx.userId,
     actorRole: ctx.role,
   });

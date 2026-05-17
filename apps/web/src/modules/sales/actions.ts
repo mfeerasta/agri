@@ -17,7 +17,7 @@ import {
   milkDispatches,
   milkSettlements,
 } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { postJournal } from '@zameen/finance';
 import { getSessionContext } from '@/lib/session';
 
@@ -79,6 +79,14 @@ export async function submitMandiDispatch(raw: unknown): Promise<R> {
 
   const estimatedValue = Number(data.estimatedValuePkr ?? 0);
   if (estimatedValue > 500_000) {
+    const payload = { mandiDispatchId: row!.id, ...data };
+    const contextSnapshot = await buildFullContext({
+      entityId: data.entityId,
+      approvalType: 'crop_sale',
+      payload: payload as Record<string, unknown>,
+      requesterUserId: ctx.userId,
+      sourceModule: 'sales',
+    });
     await submitApproval({
       entityId: data.entityId,
       approvalType: 'crop_sale',
@@ -86,7 +94,8 @@ export async function submitMandiDispatch(raw: unknown): Promise<R> {
       sourceRecordId: row!.id,
       title: `Mandi dispatch ${dispatchNumber}`,
       amountPkr: estimatedValue,
-      payload: { mandiDispatchId: row!.id, ...data },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });

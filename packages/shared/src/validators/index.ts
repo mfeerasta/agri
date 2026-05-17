@@ -11,3 +11,4 @@ export * from './procurement.js';
 export * from './sales.js';
 export * from './compliance.js';
 export * from './finance.js';
+export * from './ocr.js';

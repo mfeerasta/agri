@@ -2,7 +2,8 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { BigButton, Input, UrduInput, PhotoCapture, VoiceNote } from '@zameen/ui';
+import { BigButton, ConfidenceBadge, Input, UrduInput, PhotoCapture, VoiceNote } from '@zameen/ui';
+import type { DieselReceiptExtract } from '@zameen/shared';
 import { t } from '@zameen/locale';
 import { useLocaleStore } from '../../../lib/locale-store';
 import { uploadPhotoToR2 } from '../../../lib/upload';
@@ -54,6 +55,58 @@ export function DieselPurchaseForm({ entityId, assets, tanks }: Props) {
   const notes = watch('notes');
   const total = Number((qty * rate).toFixed(2));
 
+  const [extract, setExtract] = React.useState<DieselReceiptExtract | null>(null);
+  const [ocrBusy, setOcrBusy] = React.useState(false);
+  const [filledKeys, setFilledKeys] = React.useState<Set<string>>(new Set());
+  const lastOcrUrl = React.useRef<string | null>(null);
+
+  const runOcr = React.useCallback(async (imageUrl: string) => {
+    if (lastOcrUrl.current === imageUrl) return;
+    lastOcrUrl.current = imageUrl;
+    setOcrBusy(true);
+    try {
+      const res = await fetch('/api/ocr/diesel', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as { extract: DieselReceiptExtract };
+      setExtract(json.extract);
+      if (json.extract.confidence >= 0.5) {
+        const filled = new Set<string>();
+        const setIfEmpty = (key: keyof FormData, value: unknown) => {
+          const current = (watch as unknown as (k: keyof FormData) => unknown)(key);
+          const empty = current === undefined || current === null || current === '' || current === 0;
+          if (empty && value !== null && value !== undefined && value !== '') {
+            setValue(key, value as never);
+            filled.add(key as string);
+          }
+        };
+        setIfEmpty('vendorName', json.extract.vendorName ?? undefined);
+        setIfEmpty('vendorLocation', json.extract.vendorLocation ?? undefined);
+        setIfEmpty('quantityLiters', json.extract.quantityLiters ?? undefined);
+        setIfEmpty('rateLiterPkr', json.extract.rateLiterPkr ?? undefined);
+        if (json.extract.paymentMethod) setIfEmpty('paymentMethod', json.extract.paymentMethod);
+        setFilledKeys(filled);
+      } else {
+        setFilledKeys(new Set());
+      }
+    } finally {
+      setOcrBusy(false);
+    }
+  }, [setValue, watch]);
+
+  React.useEffect(() => {
+    if (photos && photos.length > 0 && typeof navigator !== 'undefined' && navigator.onLine) {
+      void runOcr(photos[0]!);
+    }
+  }, [photos, runOcr]);
+
+  const lowConfidence = extract !== null && extract.confidence >= 0.5 && extract.confidence < 0.8;
+  const tooLow = extract !== null && extract.confidence < 0.5;
+  const amberIf = (key: string) => (lowConfidence && filledKeys.has(key) ? ' border-amber-500 ring-1 ring-amber-400' : '');
+
   async function onSubmit(data: FormData) {
     setError(null);
     if (data.receiptPhotoUrls.length < 1) {
@@ -90,22 +143,35 @@ export function DieselPurchaseForm({ entityId, assets, tanks }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {extract && extract.confidence >= 0.5 ? (
+        <div className="flex items-center gap-2 border border-[var(--rule)] bg-[var(--paper)] p-2 text-sm">
+          <span className="smallcaps text-[0.72rem]">Extracted from receipt</span>
+          <ConfidenceBadge confidence={extract.confidence} />
+        </div>
+      ) : null}
+      {tooLow ? (
+        <div className="border border-amber-400 bg-amber-50 p-2 text-sm text-amber-800">
+          Receipt unclear, please enter values manually.
+        </div>
+      ) : null}
+      {ocrBusy ? <div className="text-xs text-[var(--ink)] opacity-60">Reading receipt...</div> : null}
+
       <label className="block">
         <span className="smallcaps text-[0.72rem] block mb-2">Vendor</span>
-        <Input {...register('vendorName')} required className="min-h-[64px]" />
+        <Input {...register('vendorName')} required className={`min-h-[64px]${amberIf('vendorName')}`} />
       </label>
       <label className="block">
         <span className="smallcaps text-[0.72rem] block mb-2">Location</span>
-        <Input {...register('vendorLocation')} className="min-h-[64px]" />
+        <Input {...register('vendorLocation')} className={`min-h-[64px]${amberIf('vendorLocation')}`} />
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="smallcaps text-[0.72rem] block mb-2">{t('diesel.litres', locale)}</span>
-          <Input type="number" inputMode="decimal" step="0.1" {...register('quantityLiters', { valueAsNumber: true })} required className="min-h-[64px]" />
+          <Input type="number" inputMode="decimal" step="0.1" {...register('quantityLiters', { valueAsNumber: true })} required className={`min-h-[64px]${amberIf('quantityLiters')}`} />
         </label>
         <label className="block">
           <span className="smallcaps text-[0.72rem] block mb-2">{t('diesel.rate', locale)}</span>
-          <Input type="number" inputMode="decimal" step="0.01" {...register('rateLiterPkr', { valueAsNumber: true })} required className="min-h-[64px]" />
+          <Input type="number" inputMode="decimal" step="0.01" {...register('rateLiterPkr', { valueAsNumber: true })} required className={`min-h-[64px]${amberIf('rateLiterPkr')}`} />
         </label>
       </div>
 

@@ -15,7 +15,7 @@ import {
   goodsReceivedNotes,
   purchaseInvoices,
 } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { getSessionContext } from '@/lib/session';
 
 type R = { ok: true; id: string } | { ok: false; error: string };
@@ -67,6 +67,15 @@ export async function createPurchaseOrder(raw: unknown): Promise<R> {
     })
     .returning();
 
+  const poPayload = { purchaseOrderId: row!.id, ...data };
+  const [vendorRow] = await db.select().from(vendors).where(eq(vendors.id, data.vendorId)).limit(1);
+  const poContext = await buildFullContext({
+    entityId: data.entityId,
+    approvalType: 'input_purchase',
+    payload: { ...poPayload, vendorName: vendorRow?.name } as Record<string, unknown>,
+    requesterUserId: ctx.userId,
+    sourceModule: 'procurement',
+  });
   await submitApproval({
     entityId: data.entityId,
     approvalType: 'input_purchase',
@@ -74,7 +83,8 @@ export async function createPurchaseOrder(raw: unknown): Promise<R> {
     sourceRecordId: row!.id,
     title: `Purchase order ${poNumber}`,
     amountPkr: data.totalPkr,
-    payload: { purchaseOrderId: row!.id, ...data },
+    payload: poPayload,
+    contextSnapshot: poContext,
     requestedBy: ctx.userId,
     actorRole: ctx.role,
   });
@@ -160,6 +170,19 @@ export async function recordInvoicePayment(raw: unknown): Promise<R> {
     .where(eq(purchaseInvoices.id, data.invoiceId));
 
   if (amount > 50_000) {
+    const [vendorRow] = await db.select().from(vendors).where(eq(vendors.id, inv.vendorId)).limit(1);
+    const payPayload = {
+      invoiceId: inv.id,
+      paymentMethod: data.paymentMethod,
+      vendorName: vendorRow?.name,
+    };
+    const payContext = await buildFullContext({
+      entityId: inv.entityId,
+      approvalType: 'input_purchase',
+      payload: payPayload as Record<string, unknown>,
+      requesterUserId: ctx.userId,
+      sourceModule: 'procurement',
+    });
     await submitApproval({
       entityId: inv.entityId,
       approvalType: 'input_purchase',
@@ -167,7 +190,8 @@ export async function recordInvoicePayment(raw: unknown): Promise<R> {
       sourceRecordId: inv.id,
       title: `Invoice payment ${inv.invoiceNumber}`,
       amountPkr: amount,
-      payload: { invoiceId: inv.id, paymentMethod: data.paymentMethod },
+      payload: payPayload,
+      contextSnapshot: payContext,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });

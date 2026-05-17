@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { NotificationsBell } from '@zameen/ui';
 import {
   LayoutDashboard,
   MapPin,
@@ -65,7 +66,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </aside>
-      <main className="px-8 py-8 max-w-[1500px] mx-auto w-full">{children}</main>
+      <main className="px-8 py-8 max-w-[1500px] mx-auto w-full">
+        <div className="flex justify-end mb-4">
+          <NotificationsBell />
+        </div>
+        {children}
+      </main>
     </div>
   );
 }

@@ -2,24 +2,19 @@
  * Multi-channel approval event dispatcher.
  *
  * Fans an approval event out to the channels relevant for that audience:
- * in-app row (always), WhatsApp template (if approver has phone), and
- * Resend email (if approver has email). WhatsApp is notification-only:
- * the message body deep-links to the Approver PWA where the full decision
- * context lives.
+ * in-app row (always), WhatsApp template (if recipient has phone), and
+ * Resend email (if recipient has email). Each channel is independent —
+ * one failure does not block the others. The WhatsApp message is purely
+ * a phone ping with a deep link back to the Approver PWA.
  */
 
-import { eq } from 'drizzle-orm';
-import { db, notifications, users } from '@zameen/db';
-import type { ApprovalRequest } from '@zameen/db/types';
-import {
-  sendApprovalRequestTemplate,
-  sendApprovalDecisionTemplate,
-  sendApprovalRequest as sendApprovalRequestEmail,
-  sendApprovalDecision as sendApprovalDecisionEmail,
-  formatPkr,
-  fromRupees,
-} from '@zameen/shared';
-import { t } from '@zameen/locale';
+import { eq, inArray } from 'drizzle-orm';
+import { db, notifications, users, entities } from '@zameen/db';
+import type { ApprovalRequest, User } from '@zameen/db/types';
+import { sendTemplate, WhatsAppError } from '@zameen/shared';
+import { Resend } from 'resend';
+import type { Locale } from '@zameen/locale';
+import { templateForEvent, type ApprovalTemplate, type TemplateRenderInput } from './templates.js';
 
 export type NotifyEvent =
   | 'submitted'
@@ -35,178 +30,298 @@ export interface NotifyInput {
   event: NotifyEvent;
   channels?: NotifyChannel[];
   comment?: string;
+  ageHours?: number;
 }
 
-interface TemplateText {
-  title: string;
-  titleUr: string;
-  body: string;
-  bodyUr: string;
+export interface ChannelResult {
+  channel: NotifyChannel;
+  recipientId: string;
+  ok: boolean;
+  reason?: string;
+  messageId?: string;
 }
 
-function template(event: NotifyEvent, request: ApprovalRequest): TemplateText {
-  const type = request.approvalType;
-  const amount = request.amountPkr ? formatPkr(fromRupees(request.amountPkr), 'lac_crore') : '';
+export interface NotifyResult {
+  results: ChannelResult[];
+}
+
+function pickLocale(user: User | null): Locale {
+  const pref = (user?.preferredLocale as Locale | undefined) ?? 'en';
+  if (pref === 'ur' || pref === 'roman_ur' || pref === 'en') return pref;
+  return 'en';
+}
+
+function recipientIdsForEvent(request: ApprovalRequest, event: NotifyEvent): string[] {
+  const ids = new Set<string>();
   switch (event) {
     case 'submitted':
-      return {
-        title: `New ${type} approval needed`,
-        titleUr: `${t('approval.pending', 'ur')}: ${type}`,
-        body: `${request.title} ${amount ? `(${amount})` : ''}`.trim(),
-        bodyUr: `${request.titleUr ?? request.title} ${amount}`.trim(),
-      };
-    case 'approved':
-      return {
-        title: `Request approved: ${type}`,
-        titleUr: `${t('approval.approved', 'ur')}: ${type}`,
-        body: request.title,
-        bodyUr: request.titleUr ?? request.title,
-      };
-    case 'rejected':
-      return {
-        title: `Request rejected: ${type}`,
-        titleUr: `${t('approval.rejected', 'ur')}: ${type}`,
-        body: request.title,
-        bodyUr: request.titleUr ?? request.title,
-      };
-    case 'sent_back':
-      return {
-        title: `Request sent back: ${type}`,
-        titleUr: `واپس بھیجی گئی: ${type}`,
-        body: request.title,
-        bodyUr: request.titleUr ?? request.title,
-      };
+      if (request.currentApproverId) ids.add(request.currentApproverId);
+      break;
     case 'escalation_reminder':
-      return {
-        title: `Reminder: ${type} pending decision`,
-        titleUr: `یاد دہانی: ${type}`,
-        body: request.title,
-        bodyUr: request.titleUr ?? request.title,
-      };
+      if (request.currentApproverId) ids.add(request.currentApproverId);
+      if (request.requestedBy) ids.add(request.requestedBy);
+      break;
+    case 'approved':
+    case 'rejected':
+    case 'sent_back':
+      if (request.requestedBy) ids.add(request.requestedBy);
+      break;
+  }
+  return [...ids];
+}
+
+let _resend: Resend | null = null;
+function resendClient(): Resend {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error('RESEND_API_KEY not set');
+  _resend = new Resend(key);
+  return _resend;
+}
+
+function fromAddress(): string {
+  return process.env.ZAMEEN_EMAIL_FROM ?? 'Zameen <notifications@agri.feerasta.ai>';
+}
+
+async function fetchRecipients(ids: string[]): Promise<User[]> {
+  if (ids.length === 0) return [];
+  return db.select().from(users).where(inArray(users.id, ids));
+}
+
+async function fetchRequesterName(request: ApprovalRequest): Promise<string> {
+  const [requester] = await db
+    .select({ fullName: users.fullName })
+    .from(users)
+    .where(eq(users.id, request.requestedBy))
+    .limit(1);
+  return requester?.fullName ?? 'A team member';
+}
+
+async function fetchEntityName(request: ApprovalRequest): Promise<string> {
+  const [row] = await db
+    .select({ name: entities.name })
+    .from(entities)
+    .where(eq(entities.id, request.entityId))
+    .limit(1);
+  return row?.name ?? 'AGRI';
+}
+
+async function dispatchInApp(
+  recipient: User,
+  template: ApprovalTemplate,
+  renderInput: TemplateRenderInput,
+  request: ApprovalRequest,
+  event: NotifyEvent,
+  comment?: string,
+): Promise<ChannelResult> {
+  const enInput: TemplateRenderInput = { ...renderInput, locale: 'en' };
+  const urInput: TemplateRenderInput = { ...renderInput, locale: 'ur' };
+  try {
+    await db.insert(notifications).values({
+      recipientId: recipient.id,
+      entityId: request.entityId,
+      channel: 'in_app',
+      category: 'approval_event',
+      title: template.inAppTitle(enInput),
+      body: template.inAppBody(enInput),
+      bodyUr: template.inAppBody(urInput),
+      deepLink: template.deepLink(request),
+      payload: {
+        approvalRequestId: request.id,
+        event,
+        approvalType: request.approvalType,
+        comment: comment ?? null,
+      },
+      sentAt: new Date(),
+    });
+    return { channel: 'in_app', recipientId: recipient.id, ok: true };
+  } catch (e) {
+    return {
+      channel: 'in_app',
+      recipientId: recipient.id,
+      ok: false,
+      reason: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
-function deepLinkFor(requestId: string): string {
-  const base = process.env.NEXT_PUBLIC_APPROVE_URL ?? 'https://approve.agri.feerasta.ai';
-  return `${base}/${requestId}`;
+async function dispatchWhatsapp(
+  recipient: User,
+  template: ApprovalTemplate,
+  renderInput: TemplateRenderInput,
+  request: ApprovalRequest,
+  event: NotifyEvent,
+): Promise<ChannelResult> {
+  if (!recipient.phone) {
+    return { channel: 'whatsapp', recipientId: recipient.id, ok: false, reason: 'no_phone' };
+  }
+  const locale = pickLocale(recipient);
+  const localeCode = locale === 'ur' ? 'ur' : 'en';
+  const parameters = template.whatsappParameters({ ...renderInput, locale });
+  const deepLink = template.deepLink(request);
+  try {
+    const result = await sendTemplate({
+      to: recipient.phone,
+      templateName: template.whatsappTemplateName,
+      languageCode: localeCode,
+      parameters,
+      buttonUrlParameter: deepLink,
+    });
+    await db.insert(notifications).values({
+      recipientId: recipient.id,
+      entityId: request.entityId,
+      channel: 'whatsapp',
+      category: 'approval_event',
+      title: template.inAppTitle({ ...renderInput, locale }),
+      body: template.inAppBody({ ...renderInput, locale }),
+      deepLink,
+      payload: {
+        approvalRequestId: request.id,
+        event,
+        messageId: result.messageId,
+        templateName: template.whatsappTemplateName,
+      },
+      sentAt: new Date(),
+    });
+    return { channel: 'whatsapp', recipientId: recipient.id, ok: true, messageId: result.messageId };
+  } catch (e) {
+    const reason = e instanceof WhatsAppError
+      ? `whatsapp_${e.statusCode}: ${e.message}`
+      : e instanceof Error
+        ? e.message
+        : String(e);
+    try {
+      await db.insert(notifications).values({
+        recipientId: recipient.id,
+        entityId: request.entityId,
+        channel: 'whatsapp',
+        category: 'approval_event',
+        title: template.inAppTitle({ ...renderInput, locale }),
+        body: template.inAppBody({ ...renderInput, locale }),
+        deepLink,
+        payload: { approvalRequestId: request.id, event, templateName: template.whatsappTemplateName },
+        failedReason: reason,
+      });
+    } catch {
+      // swallow logging failure
+    }
+    return { channel: 'whatsapp', recipientId: recipient.id, ok: false, reason };
+  }
 }
 
-function recipientForEvent(request: ApprovalRequest, event: NotifyEvent): string | null {
-  if (event === 'submitted' || event === 'escalation_reminder') {
-    return request.currentApproverId ?? null;
+async function dispatchEmail(
+  recipient: User,
+  template: ApprovalTemplate,
+  renderInput: TemplateRenderInput,
+  request: ApprovalRequest,
+  event: NotifyEvent,
+): Promise<ChannelResult> {
+  if (!recipient.email) {
+    return { channel: 'email', recipientId: recipient.id, ok: false, reason: 'no_email' };
   }
-  return request.requestedBy;
+  const locale = pickLocale(recipient);
+  const subject = template.emailSubject({ ...renderInput, locale });
+  const { html, text } = template.emailBody({ ...renderInput, locale });
+  const deepLink = template.deepLink(request);
+  try {
+    const res = await resendClient().emails.send({
+      from: fromAddress(),
+      to: recipient.email,
+      subject,
+      html,
+      text,
+    });
+    const err = (res as { error?: unknown }).error;
+    if (err) throw new Error(`Resend send failed: ${JSON.stringify(err)}`);
+    const messageId = (res as { data?: { id: string } }).data?.id ?? '';
+    await db.insert(notifications).values({
+      recipientId: recipient.id,
+      entityId: request.entityId,
+      channel: 'email',
+      category: 'approval_event',
+      title: subject,
+      body: text,
+      deepLink,
+      payload: { approvalRequestId: request.id, event, messageId },
+      sentAt: new Date(),
+    });
+    return { channel: 'email', recipientId: recipient.id, ok: true, messageId };
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    try {
+      await db.insert(notifications).values({
+        recipientId: recipient.id,
+        entityId: request.entityId,
+        channel: 'email',
+        category: 'approval_event',
+        title: subject,
+        body: text,
+        deepLink,
+        payload: { approvalRequestId: request.id, event },
+        failedReason: reason,
+      });
+    } catch {
+      // swallow
+    }
+    return { channel: 'email', recipientId: recipient.id, ok: false, reason };
+  }
 }
 
 /**
- * Fan an approval event out to the relevant channels. Each leg is independent:
- * one channel failing does not block the others.
+ * Fan an approval event out to the relevant channels. Each leg is
+ * independent: one channel failing does not block the others. Returns
+ * per-channel per-recipient results so callers can log granularly.
  */
-export async function notifyApprovalEvent(input: NotifyInput): Promise<void> {
+export async function notifyApprovalEvent(input: NotifyInput): Promise<NotifyResult> {
   const channels: NotifyChannel[] = input.channels ?? ['in_app', 'whatsapp', 'email'];
-  const tmpl = template(input.event, input.request);
-  const deepLink = deepLinkFor(input.request.id);
-  const recipientId = recipientForEvent(input.request, input.event);
-  if (!recipientId) return;
+  const recipientIds = recipientIdsForEvent(input.request, input.event);
+  if (recipientIds.length === 0) return { results: [] };
 
-  const [recipient] = await db.select().from(users).where(eq(users.id, recipientId)).limit(1);
-  if (!recipient) return;
+  const recipients = await fetchRecipients(recipientIds);
+  if (recipients.length === 0) return { results: [] };
 
-  const tasks: Array<Promise<unknown>> = [];
+  const template = templateForEvent(input.event);
 
-  if (channels.includes('in_app')) {
-    tasks.push(
-      db.insert(notifications).values({
-        recipientId,
-        entityId: input.request.entityId,
-        channel: 'in_app',
-        category: `approval.${input.event}`,
-        title: tmpl.title,
-        body: tmpl.body,
-        bodyUr: tmpl.bodyUr,
-        deepLink,
-        payload: { approvalRequestId: input.request.id, comment: input.comment ?? null },
-        sentAt: new Date(),
-      }),
-    );
+  const [requesterName, entityName] = await Promise.all([
+    fetchRequesterName(input.request),
+    fetchEntityName(input.request),
+  ]);
+
+  const decisionForEvent: 'approved' | 'rejected' | 'sent_back' | undefined =
+    input.event === 'approved' ? 'approved'
+      : input.event === 'rejected' ? 'rejected'
+        : input.event === 'sent_back' ? 'sent_back'
+          : undefined;
+
+  const tasks: Array<Promise<ChannelResult>> = [];
+  for (const recipient of recipients) {
+    const locale = pickLocale(recipient);
+    const renderInput: TemplateRenderInput = {
+      request: input.request,
+      event: input.event,
+      locale,
+      decision: decisionForEvent,
+      comment: input.comment,
+      ageHours: input.ageHours,
+      requesterName,
+      entityName,
+    };
+    if (channels.includes('in_app')) {
+      tasks.push(dispatchInApp(recipient, template, renderInput, input.request, input.event, input.comment));
+    }
+    if (channels.includes('whatsapp')) {
+      tasks.push(dispatchWhatsapp(recipient, template, renderInput, input.request, input.event));
+    }
+    if (channels.includes('email')) {
+      tasks.push(dispatchEmail(recipient, template, renderInput, input.request, input.event));
+    }
   }
 
-  if (channels.includes('whatsapp') && recipient.phone) {
-    const amount = input.request.amountPkr
-      ? formatPkr(fromRupees(input.request.amountPkr), 'lac_crore')
-      : 'n/a';
-    const send =
-      input.event === 'submitted' || input.event === 'escalation_reminder'
-        ? sendApprovalRequestTemplate({
-            to: recipient.phone,
-            requesterName: recipient.fullName,
-            type: input.request.approvalType,
-            amountPkrFormatted: amount,
-            deepLink,
-            languageCode: recipient.preferredLocale === 'ur' ? 'ur' : 'en',
-          })
-        : sendApprovalDecisionTemplate({
-            to: recipient.phone,
-            decision: input.event === 'approved' ? 'approved' : input.event === 'rejected' ? 'rejected' : 'sent_back',
-            type: input.request.approvalType,
-            deepLink,
-            languageCode: recipient.preferredLocale === 'ur' ? 'ur' : 'en',
-          });
-    tasks.push(
-      send.catch(async (e: unknown) => {
-        await db.insert(notifications).values({
-          recipientId,
-          entityId: input.request.entityId,
-          channel: 'whatsapp',
-          category: `approval.${input.event}`,
-          title: tmpl.title,
-          body: tmpl.body,
-          deepLink,
-          failedReason: e instanceof Error ? e.message : String(e),
-        });
-      }),
-    );
-  }
-
-  if (channels.includes('email') && recipient.email) {
-    const amount = input.request.amountPkr
-      ? formatPkr(fromRupees(input.request.amountPkr), 'lac_crore')
-      : 'n/a';
-    const send =
-      input.event === 'submitted' || input.event === 'escalation_reminder'
-        ? sendApprovalRequestEmail({
-            to: recipient.email,
-            approverName: recipient.fullName,
-            requesterName: recipient.fullName,
-            type: input.request.approvalType,
-            amountPkrFormatted: amount,
-            title: input.request.title,
-            deepLink,
-          })
-        : sendApprovalDecisionEmail({
-            to: recipient.email,
-            recipientName: recipient.fullName,
-            decision: input.event === 'approved' ? 'approved' : input.event === 'rejected' ? 'rejected' : 'sent_back',
-            type: input.request.approvalType,
-            title: input.request.title,
-            deepLink,
-            comment: input.comment,
-          });
-    tasks.push(
-      send.catch(async (e: unknown) => {
-        await db.insert(notifications).values({
-          recipientId,
-          entityId: input.request.entityId,
-          channel: 'email',
-          category: `approval.${input.event}`,
-          title: tmpl.title,
-          body: tmpl.body,
-          deepLink,
-          failedReason: e instanceof Error ? e.message : String(e),
-        });
-      }),
-    );
-  }
-
-  await Promise.all(tasks);
+  const settled = await Promise.allSettled(tasks);
+  const results: ChannelResult[] = settled.map((s) =>
+    s.status === 'fulfilled'
+      ? s.value
+      : { channel: 'in_app', recipientId: '', ok: false, reason: String(s.reason) },
+  );
+  return { results };
 }

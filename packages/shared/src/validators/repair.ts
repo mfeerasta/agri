@@ -30,6 +30,7 @@ export const repairQuoteSchema = z
     etaDays: z.coerce.number().nonnegative().optional(),
     warrantyDays: z.coerce.number().nonnegative().optional(),
     quoteDocumentUrls: photoUrlsSchema,
+    ocrExtractedText: z.string().max(20000).optional(),
   })
   .transform((v) => {
     const partsTotalPkr = v.partsList.reduce((sum, p) => sum + p.qty * p.unitPricePkr, 0);

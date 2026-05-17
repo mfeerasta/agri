@@ -13,7 +13,7 @@ import {
   subsidyTransactions,
   sprayDiaries,
 } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { getSessionContext } from '@/lib/session';
 
 type R = { ok: true; id: string } | { ok: false; error: string };
@@ -62,6 +62,14 @@ export async function fileTax(raw: unknown): Promise<R> {
     })
     .returning();
 
+  const taxPayload = { taxFilingId: row!.id, ...data };
+  const taxContext = await buildFullContext({
+    entityId: data.entityId,
+    approvalType: 'tax_payment',
+    payload: taxPayload as Record<string, unknown>,
+    requesterUserId: ctx.userId,
+    sourceModule: 'compliance',
+  });
   await submitApproval({
     entityId: data.entityId,
     approvalType: 'tax_payment',
@@ -69,7 +77,8 @@ export async function fileTax(raw: unknown): Promise<R> {
     sourceRecordId: row!.id,
     title: `Tax payment ${data.taxKind} ${data.periodLabel}`,
     amountPkr: Number(data.amountPkr),
-    payload: { taxFilingId: row!.id, ...data },
+    payload: taxPayload,
+    contextSnapshot: taxContext,
     requestedBy: ctx.userId,
     actorRole: ctx.role,
   });

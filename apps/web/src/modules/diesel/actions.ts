@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { dieselPurchaseSchema, dieselDailyLogSchema } from '@zameen/shared/validators';
 import { DEFAULT_APPROVAL_THRESHOLDS_PKR } from '@zameen/shared';
 import { db, dieselPurchases, dieselDailyLogs } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { allocateCost } from '@zameen/finance';
 import { getSessionContext } from '@/lib/session';
 
@@ -42,6 +42,14 @@ export async function submitDieselPurchase(raw: unknown): Promise<ServerResult> 
     (thresholds.farm_manager !== null && amountPkr > thresholds.farm_manager);
 
   if (needsApproval) {
+    const payload = { dieselPurchaseId: row!.id, ...data };
+    const contextSnapshot = await buildFullContext({
+      entityId: data.entityId,
+      approvalType: 'diesel_purchase',
+      payload,
+      requesterUserId: ctx.userId,
+      sourceModule: 'diesel',
+    });
     await submitApproval({
       entityId: data.entityId,
       approvalType: 'diesel_purchase',
@@ -49,7 +57,8 @@ export async function submitDieselPurchase(raw: unknown): Promise<ServerResult> 
       sourceRecordId: row!.id,
       title: `Diesel purchase ${data.quantityLiters} L from ${data.vendorName}`,
       amountPkr,
-      payload: { dieselPurchaseId: row!.id, ...data },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });

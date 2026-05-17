@@ -50,6 +50,47 @@ async function postTemplate(payload: Record<string, unknown>): Promise<WhatsAppS
   return { messageId, status: 'sent' };
 }
 
+export interface SendTemplateInput {
+  to: string;
+  templateName: string;
+  languageCode?: string;
+  parameters?: string[];
+  buttonUrlParameter?: string;
+}
+
+/**
+ * Generic Meta WhatsApp template send. Replaces the older per-type helpers
+ * once callers migrate. Body parameters are positional ({{1}}, {{2}}, ...).
+ * If `buttonUrlParameter` is set, it is wired to the first URL button.
+ */
+export async function sendTemplate(input: SendTemplateInput): Promise<WhatsAppSendResult> {
+  const components: Array<Record<string, unknown>> = [];
+  if (input.parameters && input.parameters.length > 0) {
+    components.push({
+      type: 'body',
+      parameters: input.parameters.map((text) => ({ type: 'text', text })),
+    });
+  }
+  if (input.buttonUrlParameter) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: input.buttonUrlParameter }],
+    });
+  }
+  return postTemplate({
+    messaging_product: 'whatsapp',
+    to: input.to,
+    type: 'template',
+    template: {
+      name: input.templateName,
+      language: { code: input.languageCode ?? 'en' },
+      components,
+    },
+  });
+}
+
 export interface ApprovalRequestTemplateInput {
   to: string;
   requesterName: string;

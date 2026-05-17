@@ -15,7 +15,7 @@ import {
   payslips,
   taskAssignments,
 } from '@zameen/db';
-import { submitApproval } from '@zameen/approvals';
+import { submitApproval, buildFullContext } from '@zameen/approvals';
 import { allocateCost } from '@zameen/finance';
 import { computeNetPay } from '@zameen/finance';
 import { getSessionContext } from '@/lib/session';
@@ -47,6 +47,14 @@ export async function createWorker(raw: unknown): Promise<R> {
     .returning();
 
   if (data.workerType === 'permanent') {
+    const payload = { workerId: row!.id, ...data };
+    const contextSnapshot = await buildFullContext({
+      entityId: data.entityId,
+      approvalType: 'labor_hire',
+      payload: payload as Record<string, unknown>,
+      requesterUserId: ctx.userId,
+      sourceModule: 'labor',
+    });
     await submitApproval({
       entityId: data.entityId,
       approvalType: 'labor_hire',
@@ -54,7 +62,8 @@ export async function createWorker(raw: unknown): Promise<R> {
       sourceRecordId: row!.id,
       title: `Hire permanent worker ${data.fullName}`,
       amountPkr: Number(data.monthlySalaryPkr ?? 0),
-      payload: { workerId: row!.id, ...data },
+      payload,
+      contextSnapshot,
       requestedBy: ctx.userId,
       actorRole: ctx.role,
     });
@@ -159,6 +168,14 @@ export async function initiatePayrollRun(raw: unknown): Promise<R> {
     );
   }
 
+  const payrollPayload = { payrollRunId: run!.id, slipCount: slips.length };
+  const payrollContext = await buildFullContext({
+    entityId: data.entityId,
+    approvalType: 'labor_hire',
+    payload: payrollPayload,
+    requesterUserId: ctx.userId,
+    sourceModule: 'labor',
+  });
   await submitApproval({
     entityId: data.entityId,
     approvalType: 'labor_hire',
@@ -166,7 +183,8 @@ export async function initiatePayrollRun(raw: unknown): Promise<R> {
     sourceRecordId: run!.id,
     title: `Payroll run ${data.periodStart} to ${data.periodEnd}`,
     amountPkr: totalPkr,
-    payload: { payrollRunId: run!.id, slipCount: slips.length },
+    payload: payrollPayload,
+    contextSnapshot: payrollContext,
     requestedBy: ctx.userId,
     actorRole: ctx.role,
   });
