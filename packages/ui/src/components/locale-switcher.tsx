@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Globe } from 'lucide-react';
 import { cn } from '../lib/cn.js';
 
-export type SwitcherLocale = 'ur' | 'roman_ur' | 'en';
+export type SwitcherLocale = 'ur' | 'roman_ur' | 'pa' | 'hi' | 'en';
 
 export interface LocaleSwitcherProps {
   current: SwitcherLocale;
@@ -15,8 +15,16 @@ export interface LocaleSwitcherProps {
 const LABELS: Record<SwitcherLocale, string> = {
   ur: 'اردو',
   roman_ur: 'Roman',
+  pa: 'پنجابی',
+  hi: 'हिन्दी',
   en: 'English',
 };
+
+const GROUPS: { header: string; locales: SwitcherLocale[] }[] = [
+  { header: 'Pakistan', locales: ['ur', 'roman_ur', 'pa'] },
+  { header: 'India', locales: ['hi'] },
+  { header: 'Global', locales: ['en'] },
+];
 
 export function LocaleSwitcher({ current, onChange, className }: LocaleSwitcherProps) {
   const [open, setOpen] = React.useState(false);
@@ -45,25 +53,31 @@ export function LocaleSwitcher({ current, onChange, className }: LocaleSwitcherP
       {open ? (
         <ul
           role="listbox"
-          className="absolute right-0 z-50 mt-1 min-w-[140px] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-soft"
+          className="absolute right-0 z-50 mt-1 min-w-[180px] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-soft"
         >
-          {(Object.keys(LABELS) as SwitcherLocale[]).map((loc) => (
-            <li key={loc}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={loc === current}
-                onClick={async () => {
-                  setOpen(false);
-                  await onChange(loc);
-                }}
-                className={cn(
-                  'block w-full px-3 py-2 text-left text-sm hover:bg-[var(--surface-2)]',
-                  loc === current ? 'text-[var(--accent)]' : 'text-[var(--fg)]',
-                )}
-              >
-                {LABELS[loc]}
-              </button>
+          {GROUPS.map((group) => (
+            <li key={group.header} className="border-b border-[var(--border)] last:border-b-0">
+              <div className="px-3 pt-2 pb-1 text-[0.65rem] uppercase tracking-wide text-[var(--fg)]/50">
+                {group.header}
+              </div>
+              {group.locales.map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  role="option"
+                  aria-selected={loc === current}
+                  onClick={async () => {
+                    setOpen(false);
+                    await onChange(loc);
+                  }}
+                  className={cn(
+                    'block w-full px-3 py-2 text-left text-sm hover:bg-[var(--surface-2)]',
+                    loc === current ? 'text-[var(--accent)]' : 'text-[var(--fg)]',
+                  )}
+                >
+                  {LABELS[loc]}
+                </button>
+              ))}
             </li>
           ))}
         </ul>

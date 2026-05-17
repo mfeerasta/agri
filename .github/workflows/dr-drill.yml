@@ -1,0 +1,52 @@
+name: dr-drill
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch: {}
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: drill
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
+      CLOUDFLARE_R2_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY }}
+      CLOUDFLARE_R2_SECRET_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_KEY }}
+      CLOUDFLARE_R2_BACKUP_BUCKET: ${{ secrets.CLOUDFLARE_R2_BACKUP_BUCKET }}
+      DEPLOY_SLACK_WEBHOOK: ${{ secrets.DEPLOY_SLACK_WEBHOOK }}
+      DR_TARGET: local
+      DR_RESTORE_URL: postgresql://postgres:drill@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client awscli jq
+
+      - name: Run DR drill
+        run: |
+          chmod +x deploy/dr-drill.sh
+          deploy/dr-drill.sh
+
+      - name: Upload smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-drill-smoke-log
+          path: /tmp/zameen-drill-*/smoke.log
+          if-no-files-found: ignore

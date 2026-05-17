@@ -617,3 +617,287 @@ Pilot users are a closed cohort of Rupafab employees. Captcha adds friction with
 **Backfill via dedicated edge function.** `supabase/functions/diagnostics-backfill/index.ts` walks `crop_stage_logs.photo_urls` and inserts a diagnostic per photo, skipping already-diagnosed URLs. The web `/api/diagnostics/backfill` does a smaller in-process 100-photo run for interactive use. Running larger backfills inside Next.js would tie up serverless connections during the slow Claude calls.
 
 **Diagnostics scoped through field RLS.** The `diag_via_field` policy walks `fields -> blocks -> farms` to check `accessible_entity_ids(auth.uid())`. No separate diagnostics-level grants. Matches every other field-scoped table in the schema.
+
+## Mobile shell: Capacitor over React Native (Phase 3)
+
+**Capacitor wraps the existing field PWA, no rewrite.** Adoption of the field
+PWA is held back by the absence of a Play Store / App Store presence, not by
+the PWA experience itself. Rewriting the worker UI in React Native would
+duplicate every screen, every form, every offline-queue handler, and force us
+to maintain two stacks. Capacitor keeps the Next.js PWA as the single source
+of truth and adds a native shell that loads `field.agri.feerasta.ai` in a
+WKWebView (iOS) or WebView (Android). One codebase, two extra shells.
+
+**Server-URL mode over fully-bundled web assets.** Capacitor supports two
+delivery modes: (1) bundle the built static web into the app and ship via
+the stores, (2) point `server.url` at the live web origin and load it at
+runtime. We chose (2). Updates to the field PWA ship instantly without an
+app-store review cycle. The store binary only needs a new build when native
+plugins, permissions, app icon, or signing changes. Trade-off accepted: the
+app needs network at first launch to load the PWA shell; the PWA's service
+worker handles every subsequent boot.
+
+**FCM HTTP v1 for both iOS and Android.** Apple Push Notification service
+(APNS) and Firebase Cloud Messaging (FCM) both work for iOS, but FCM offers
+a single API for both platforms. Apple lets you upload an APNS auth key into
+Firebase and FCM bridges payloads through. One server-side path
+(`packages/shared/src/fcm.ts`), one set of credentials, one
+`@capacitor/push-notifications` plugin call on the client. Web push keeps
+its existing VAPID/web-push pipeline; the router in `sendPushToUser`
+dispatches by `platform`.
+
+**One `push_subscriptions` row per device, regardless of stack.** Migration
+`0028_push_native_tokens.sql` adds `platform` and `native_token` columns and
+relaxes `endpoint`/`p256dh`/`auth` to nullable, with a check constraint
+enforcing "web rows carry the web-push triple, native rows carry a
+native_token". This keeps the audit trail of "which subscribers got
+notified" in one table.
+
+**Tablet shell shares the same approach.** `apps/mobile-ops/` mirrors
+`apps/mobile-field/` with a different appId (`ai.feerasta.zameen.ops`)
+pointed at the ops origin. iPad + Galaxy Tab supervisors get a tablet-shaped
+native shell on top of the same web app they already use.
+
+**iOS signing stays manual through Phase 3.** GitHub Actions builds Android
+APKs on every `v*-mobile` tag via `mobile-build.yml`. iOS signed builds are
+produced manually in Xcode on a macOS workstation against the Apple
+Developer cert. Fastlane Match + a self-hosted macOS runner are deferred to
+the post-Phase-3 hardening pass — automating signing introduces a different
+class of risk (cert leaks, provisioning-profile drift) that we'd rather not
+take on while the native shell is brand new.
+
+**Bridge injected, PWA unchanged.** The PWA source code does not import any
+`@capacitor/*` package. Instead, the native shell ships a tiny TS bundle
+(`apps/mobile-field/src/bridge/inject.ts`) that installs
+`window.__zameenNative__` on `DOMContentLoaded`. The PWA already
+feature-detects `window.__zameenNative__` to prefer native camera + GPS +
+durable-offline + push when available. This keeps the web bundle free of
+native deps and lets the bridge evolve independently.
+
+## 2026-05-17. Offline sync UX, cron health dashboard, DR drill automation
+
+### Exponential backoff schedule for the field PWA queue
+
+Workers on prepaid 3G/4G see intermittent failures. Retrying every drain
+tick (60s) is wasteful on both battery and data, and a single broken
+record can monopolise the channel. The queue now records `attempts`,
+`lastError`, `nextRetryAt` per op and follows a 5s / 30s / 5min / 30min /
+4h backoff before giving up. Failed ops stay in IDB so the worker can see
+what didn't sync and the field manager can decide whether to retry or
+drop. The "give up after 5 attempts" rule keeps the queue bounded so a
+poison record can't pin the device.
+
+### Background Sync API for online wake-up
+
+Service workers register a `sync` event with tag `zameen-drain-queue`
+after each enqueue. When the device comes back online the browser fires
+the event and the SW POSTs `/api/sync/drain-trigger` to wake the tab.
+The actual drain still runs client-side because IndexedDB isn't reachable
+from the SW context in our pattern. iOS Safari doesn't ship Background
+Sync; the existing 60s `SyncDaemon` interval is the fallback.
+
+### pg_cron via trigger sync into application table
+
+`cron.job_run_details` lives in the `cron` schema and isn't RLS-aware. To
+expose pg_cron history alongside edge-function runs in a single
+`/admin/jobs` dashboard we mirror inserts into `zameen.job_runs` via an
+after-insert trigger. Edge functions write to the same table through a
+`trackJobRun` helper. Net effect: one dashboard, one RLS policy
+(`auth.role() = authenticated` for read, service role for write), and ops
+can filter by job_name / kind / status without leaving the app.
+
+### Monthly DR drill in CI on GitHub-hosted Postgres
+
+A real Hetzner CX11 spin-up costs about $0.005 / hour and adds Slack
+noise from cloud-init. For the monthly automated drill the failure modes
+we care about are: the dump being truncated, the schema drifting against
+the running migrations, FK violations, and unbalanced journals. All of
+these are catchable in a vanilla `postgres:16-alpine` service container
+on GitHub Actions, which costs nothing and finishes in under 5 minutes.
+On-demand drills against a Hetzner box are still possible via
+`deploy/dr-drill.sh` with `DR_TARGET=hetzner` and remain the right call
+before any large migration cutover.
+
+### Backup manifest with row counts catches truncated dumps
+
+`deploy/backup.sh` writes a sibling `*.manifest.json` with size, sha256,
+generated-at, and per-table row counts. The DR drill verifies that
+`entities`, `users`, and `fields` row counts are > 0 in the manifest
+before even attempting a restore. This catches the "pg_dump exited 0 but
+the dump is empty" failure mode that motivated the drill in the first
+place.
+
+
+## 2026-05-17 - Daily ops digest, weekly summaries, multi-farm onboarding
+
+Five locked decisions for the digest and onboarding feature set.
+
+Slack Block Kit over plain text. The daily ops digest goes to MF's Slack
+workspace. Plain text would have been simpler, but Block Kit gives sectioned
+KPI fields, divider rhythm, and inline buttons that link directly to a
+pending approval in the Approver PWA. MF can act from inside Slack without
+context-switching to the dashboard. The webhook URL is treated as a secret
+and masked in the admin table view.
+
+Three channels for digests: Slack, email, WhatsApp. Each one shows up where
+MF already is. Slack is the primary daily channel (his ops chat). Email is
+the weekly format because the email renderer can ship inline SVG charts
+and a cost-breakdown table without depending on a remote image host.
+WhatsApp is the fallback for situations where MF is on his phone with no
+data connection to render rich content - the message is plain text, capped
+at 1024 chars, with a short link to the approver queue.
+
+15-minute cron tick. The digest-sender Edge Function runs every 15 minutes
+and walks zameen.digest_subscriptions. Each row has a send_time_local in
+its own timezone; the function only fires the row when local minutes have
+passed and last_sent_at is from a prior calendar day. This is coarser than
+a per-minute tick but well within the resolution MF needs for a daily
+digest, and it cuts pg_cron load substantially.
+
+Onboarding draft state persisted. The five-step wizard takes 20-45 minutes
+to fill (entity setup, land + blocks + fields, people, crops, automations).
+That is too long for a single browser session, especially when MF is
+running between rooms in Lahore. zameen.onboarding_drafts stores the full
+WizardState as jsonb, scoped by created_by with RLS. Every autosave goes
+through the saveDraftState server action, and the page resumes from the
+most recent un-finalized draft on next visit.
+
+Atomic finalize via Drizzle transactions. createEntityFromWizard and
+createFarmFromWizard each wrap their inserts in db.transaction(). If any
+step fails, the partial work rolls back and the wizard surfaces the error
+in its commit log so MF can fix the input and retry. People + crop plans
++ digests are written sequentially (separate transactions) because each
+depends on the previous step's returned ID; the log captures progress
+between transactions.
+
+No "tenant per farm" rebrand. The schema already supports multiple farms
+under one entity (farms.entity_id). When the next Rupafab farm comes
+online it will be a new zameen.farms row under the same Rupafab entity,
+not a new tenant. The wizard's step 1 lets MF pick "existing entity" for
+exactly this case. A future "Rupafab Agri 2" subsidiary entity would be
+created via the same wizard with mode='new'.
+
+---
+
+## Phase 1 launch: training, tours, auditor, analytics
+
+### Worker training mode via boolean column, not separate schema
+
+Every transactional table that field workers can write to now carries
+`is_training boolean not null default false`. A `training_sessions` row
+opens when the worker toggles training mode in the field PWA and closes
+on toggle-off. A weekly cron (supabase/scripts/cleanup-training-data.sh)
+purges every is_training = true row, scoped by query, not by tenant.
+
+Considered: a parallel zameen_training schema with the same tables.
+Rejected because every read-side query (anomaly detection, dashboards,
+P&L) would have needed conditional UNION logic, and writes would have
+needed to choose schemas at runtime. The boolean approach keeps query
+paths simple and lets the cleanup script stay mechanical: seven DELETE
+statements, no joins, no schema introspection. Partial indexes on the
+training flag keep the cleanup script under a second even at scale.
+
+The field PWA banner is intentionally loud: yellow background, emoji,
+Urdu + English, sticky at the top of every page. There is no way to
+miss it. Forms read the `isTrainingMode()` helper at submit time and
+set is_training in the resulting row.
+
+### Per-role product tours, one-time, skippable, resumable
+
+Tours are defined per role in apps/web/src/lib/tours/index.ts. The
+dashboard layout auto-starts the role's tour on first load by reading
+users.tours_completed / tours_skipped. Skipping records to tours_skipped
+so the tour does not re-appear; resetting from /admin/profile clears
+both arrays. localStorage is used as a fast client-side cache to avoid
+flashing the tour for users who just dismissed it.
+
+Considered: a third-party library like Shepherd or Intro.js. Rejected
+because the tour is small (eight steps max), needs to live inside the
+zameen tokens (--accent, --paper), and must not pull a 30 KB dependency.
+The ProductTour component in @zameen/ui is 4 KB and uses
+data-tour="..." anchors that any page can opt into.
+
+### Auditor role: parallel SELECT-only RLS policies
+
+Auditor is now a value in zameen.user_role. Migration 0033 grants
+auditors SELECT on every table in the zameen schema and never grants
+INSERT/UPDATE/DELETE. The app-layer UI also hides admin nav and shows
+a read-only banner, but the database is the source of truth. Even if
+an attacker bypasses the React shell, Postgres refuses writes.
+
+The audit workspace at /audit/period composes a side-by-side view of
+journal entries, journal lines, approval chain, and cost allocations
+for a selected period. Export endpoints (XLSX, PDF) are stubbed for
+the auditor's offline review. We avoid building auditor-specific
+queries: the existing tables, joined the same way the accountant view
+joins them, are what the auditor sees.
+
+### Self-hosted platform analytics, not third-party
+
+zameen.platform_events stores every page view, approval decision, AI
+call, export download, and training-mode toggle. Director and
+super_admin can read; any authenticated session can insert. Data
+residency requirement for Phase 1: no PII leaves Pakistan-hosted
+Supabase. PostHog or Amplitude can be added later as an additional
+sink if MF wants funnel analysis on top of the raw events, but the
+events table remains the authoritative log.
+
+Tracking is fire-and-forget: a 1-second AbortSignal.timeout on the
+fetch ensures analytics never delays a page render or a server action.
+Errors are swallowed; missing env vars are a no-op. Props are
+restricted to small primitives (path, event type, decision id) so
+no PII leaks beyond the user_id reference that platform_events
+already stores.
+
+The middleware tracks page_view for every authenticated request that
+is not /api or /admin/analytics (to avoid recursion when MF views the
+analytics dashboard). The trackEvent helper in @zameen/shared is
+called from server actions for non-page events (approvals, AI calls,
+exports).
+
+## 2026-05-17 — Punjabi/Hindi locales, ICS export, full-text receipts archive
+
+### Punjabi in Shahmukhi, not Gurmukhi
+Pakistani Punjab uses the Perso-Arabic Shahmukhi script. East Punjab Gurmukhi
+is out of scope for this farm — workers in Raiwind read Urdu naskh natively
+and Shahmukhi sits adjacent to it. Adding Gurmukhi would force a second font
+stack and confuse readers. The 'pa' locale is RTL like 'ur', shares the urdu
+body class, and falls back to 'ur' then 'en' if a key is missing.
+
+### Hindi added for completeness, but field PWA default stays Urdu
+Hindi (hi, Devanagari, LTR) is included because some seasonal workers from
+Indian Punjab transit through. UI default remains Urdu. Hindi fallback chain
+goes straight to English — no Urdu fallback because the scripts diverge.
+
+### ICS hand-rolled, no library
+The buildIcs helper in @zameen/shared is ~150 lines, RFC 5545 compliant, with
+proper CRLF line endings, text escaping, line folding, and a hard-coded
+Asia/Karachi VTIMEZONE (no DST so no rule needed). Calendar payloads stay
+under 50 KB even for a year of tasks — not worth pulling ical-generator.
+
+### Calendar subscribe tokens scope-limited
+A token granted for 'tasks' can never read approvals or feasibility studies.
+Scope 'all' exists for power users who want one URL for everything but is
+explicit at creation time. Tokens are random 24-byte base64url strings, not
+JWTs — no signing key to manage, simple revocation via DELETE on the row.
+Expiry is optional; last_accessed_at tracks usage. RLS scopes to the owning
+user only.
+
+### FTS via 'simple' dictionary
+Postgres core ships English, German, French, etc. dictionaries but no Urdu,
+Punjabi, or Hindi stemmer. Rather than self-hosting a custom dictionary, we
+use the 'simple' dictionary which lowercases and strips punctuation without
+stemming. For receipts, OCR text in the documents.metadata->>'ocrText' field
+provides searchable surface for Urdu receipts photographed in the field — the
+OCR pipeline runs through Anthropic vision which produces transliterated +
+romanized text alongside the original.
+
+### Unified receipts archive, not per-module search
+MF's mental model is "find the receipt from three months ago" — not "find the
+diesel purchase". The /receipts page does a UNION ALL across documents,
+diesel_purchases, input_purchases, and repair_quotes, ranked by date. Each
+result links back to its source record for follow-up. The search is
+intentionally fuzzy: prefix wildcards on every token, OR semantics within the
+query, broad date/amount/vendor filters. Trade-off: cross-module queries are
+slower than per-table queries (50ms vs 10ms typical), but the lookup pattern
+is once-a-month not once-a-minute.

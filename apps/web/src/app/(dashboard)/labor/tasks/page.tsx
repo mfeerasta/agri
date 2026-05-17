@@ -14,6 +14,7 @@ import { Masthead, SectionDivider } from '@zameen/ui';
 import { getSessionContext } from '@/lib/session';
 import { listSavedViews } from '@/modules/tasks/actions';
 import { TaskBoardClient, type BoardTask, type SavedViewRow } from './task-board-client';
+import { CalendarDownload } from '@/components/calendar-download';
 
 export const dynamic = 'force-dynamic';
 
@@ -238,6 +239,9 @@ export default async function LaborTasksBoardPage() {
     <div>
       <Masthead section="TASKS" />
       <SectionDivider label={`${boardTasks.length} tasks`} />
+      <div className="flex justify-end px-4 pt-3">
+        <CalendarDownload scope="tasks" />
+      </div>
       <div className="p-4">
         <TaskBoardClient
           scope={SCOPE}

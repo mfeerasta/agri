@@ -12,6 +12,7 @@
 
 import { getServiceClient, jsonResponse } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
@@ -149,7 +150,7 @@ interface StageRow {
   entity_id: string | null;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(instrument('diagnostics-backfill', async (req) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405);
   const body = await req.json().catch(() => ({}));
   const limit = typeof body?.limit === 'number' ? Math.min(500, Math.max(1, body.limit)) : DEFAULT_LIMIT;
@@ -221,4 +222,4 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse({ ok: true, processed });
-});
+}));

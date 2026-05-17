@@ -11,6 +11,7 @@
 
 import { getServiceClient, jsonResponse, pktTodayIso } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface Recipe {
   id: string;
   entity_id: string | null;
@@ -18,7 +19,7 @@ interface Recipe {
   trigger_config: Record<string, unknown>;
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('automation-tick', async () => {
   const supabase = getServiceClient();
   const today = pktTodayIso();
   const nowIso = new Date().toISOString();
@@ -112,4 +113,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ ran: queued.length, runAt: nowIso });
-});
+}));

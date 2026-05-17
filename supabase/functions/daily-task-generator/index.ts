@@ -5,6 +5,7 @@
 
 import { getServiceClient, jsonResponse, pktTodayIso, pktAddDays } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface StageTimelineEntry {
   stage: string;
   dayOffset: number;
@@ -29,7 +30,7 @@ interface CropProfileRow {
   stage_timeline: StageTimelineEntry[] | null;
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('daily-task-generator', async () => {
   const supabase = getServiceClient();
   const today = pktTodayIso();
   const tomorrow = pktAddDays(today, 1);
@@ -90,4 +91,4 @@ Deno.serve(async () => {
   if (insErr) return jsonResponse({ error: insErr.message }, 500);
 
   return jsonResponse({ generated: count ?? rowsToInsert.length });
-});
+}));

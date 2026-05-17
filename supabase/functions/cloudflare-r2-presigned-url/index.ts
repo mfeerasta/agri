@@ -9,6 +9,7 @@
 
 import { jsonResponse } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface Body {
   contentType?: string;
   prefix?: string;
@@ -46,7 +47,7 @@ function randomId(): string {
   return Array.from(arr).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-Deno.serve(async (req) => {
+Deno.serve(instrument('cloudflare-r2-presigned-url', async (req) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'method not allowed' }, 405);
 
   const accountId = Deno.env.get('R2_ACCOUNT_ID');
@@ -123,4 +124,4 @@ Deno.serve(async (req) => {
     headers: { 'content-type': contentType },
     expiresIn: expires,
   });
-});
+}));

@@ -32,6 +32,8 @@ export const users = zameen.table('users', {
   defaultEntityId: uuid('default_entity_id').references(() => entities.id, { onDelete: 'set null' }),
   preferredLocale: varchar('preferred_locale', { length: 8 }).notNull().default('ur'),
   notificationPrefs: jsonb('notification_prefs').notNull().default({}),
+  toursCompleted: jsonb('tours_completed').notNull().default([]).$type<string[]>(),
+  toursSkipped: jsonb('tours_skipped').notNull().default([]).$type<string[]>(),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

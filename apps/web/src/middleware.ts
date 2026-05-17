@@ -27,7 +27,60 @@ export async function middleware(request: NextRequest) {
     const redirect = NextResponse.redirect(url);
     return applySecurityHeaders(redirect, 'web');
   }
+
+  // Fire-and-forget page-view tracking. Never block the response.
+  const path = request.nextUrl.pathname;
+  if (
+    data.user &&
+    !path.startsWith('/api/') &&
+    !path.startsWith('/admin/analytics') &&
+    !path.startsWith('/_next')
+  ) {
+    const meta = (data.user.app_metadata ?? {}) as Record<string, unknown>;
+    void trackPageView({
+      userId: data.user.id,
+      entityId: (meta.default_entity_id as string) ?? null,
+      path,
+      userAgent: request.headers.get('user-agent') ?? null,
+    });
+  }
+
   return applySecurityHeaders(response, 'web');
+}
+
+interface TrackPageViewInput {
+  userId: string;
+  entityId: string | null;
+  path: string;
+  userAgent: string | null;
+}
+
+async function trackPageView(input: TrackPageViewInput): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return;
+  try {
+    await fetch(`${url}/rest/v1/platform_events`, {
+      method: 'POST',
+      headers: {
+        apikey: anon,
+        Authorization: `Bearer ${anon}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+        'Content-Profile': 'zameen',
+      },
+      body: JSON.stringify({
+        event_name: 'page_view',
+        event_props: { path: input.path },
+        user_id: input.userId,
+        entity_id: input.entityId,
+        user_agent: input.userAgent,
+      }),
+      signal: AbortSignal.timeout(1000),
+    });
+  } catch {
+    // never block
+  }
 }
 
 export const config = {

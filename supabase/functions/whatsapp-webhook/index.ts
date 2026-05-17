@@ -15,6 +15,7 @@
 // POST. GET handles the hub.challenge verification.
 
 import { getServiceClient, jsonResponse } from '../_shared/supabase.ts';
+import { instrument } from '../_shared/instrumented.ts';
 import { parseMessage, type NluContextHints } from '../../../packages/shared/src/nlu.ts';
 import { processIntent, type ZameenUser } from './process-intent.ts';
 import { pickLocale, replies, type Locale } from './replies.ts';
@@ -185,7 +186,7 @@ async function processInboundMessages(supabase: any, messages: MetaInboundMessag
   return handled;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(instrument('whatsapp-webhook', async (req) => {
   const url = new URL(req.url);
   if (req.method === 'GET') {
     const mode = url.searchParams.get('hub.mode');
@@ -230,4 +231,4 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse({ statusesUpdated, messagesHandled });
-});
+}));

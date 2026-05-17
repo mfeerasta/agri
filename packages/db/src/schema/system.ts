@@ -1,4 +1,4 @@
-import { boolean, decimal, jsonb, text, timestamp, uuid, varchar, date } from 'drizzle-orm/pg-core';
+import { boolean, decimal, integer, jsonb, numeric, text, timestamp, uuid, varchar, date } from 'drizzle-orm/pg-core';
 import { zameen } from './_schema.js';
 import { entities, users } from './core.js';
 
@@ -59,6 +59,32 @@ export const marketPrices = zameen.table('market_prices', {
   maxPkr: decimal('max_pkr', { precision: 12, scale: 2 }),
   modePkr: decimal('mode_pkr', { precision: 12, scale: 2 }),
   source: varchar('source', { length: 32 }),
+});
+
+export const jobRuns = zameen.table('job_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobName: text('job_name').notNull(),
+  jobKind: text('job_kind').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  status: text('status').notNull().default('running'),
+  durationMs: integer('duration_ms'),
+  errorMessage: text('error_message'),
+  recordsProcessed: integer('records_processed'),
+  payload: jsonb('payload'),
+  triggeredBy: uuid('triggered_by').references(() => users.id),
+});
+
+export const drDrillRuns = zameen.table('dr_drill_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ranAt: timestamp('ran_at', { withTimezone: true }).notNull().defaultNow(),
+  backupFilename: text('backup_filename').notNull(),
+  backupSizeMb: numeric('backup_size_mb', { precision: 10, scale: 2 }),
+  restored: boolean('restored').notNull().default(false),
+  smokeTestsPassed: boolean('smoke_tests_passed'),
+  smokeTestFailures: jsonb('smoke_test_failures'),
+  durationSeconds: integer('duration_seconds'),
+  notes: text('notes'),
 });
 
 export const offlineSyncQueue = zameen.table('offline_sync_queue', {

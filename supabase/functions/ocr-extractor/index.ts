@@ -6,6 +6,7 @@
 
 import { getServiceClient, jsonResponse } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const VISION_MODEL = 'gpt-4o';
 const TIMEOUT_MS = 30_000;
@@ -76,7 +77,7 @@ async function callOpenAi(systemPrompt: string, imageUrl: string): Promise<Recor
   }
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(instrument('ocr-extractor', async (req: Request) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'method not allowed' }, 405);
   const body = (await req.json().catch(() => null)) as RequestBody | null;
   if (!body || !body.table || !body.recordId) {
@@ -149,4 +150,4 @@ Deno.serve(async (req: Request) => {
   const { error: upd } = await supabase.from('repair_quotes').update(patch).eq('id', body.recordId);
   if (upd) return jsonResponse({ error: upd.message }, 500);
   return jsonResponse({ ok: true, confidence, filled: Object.keys(patch) });
-});
+}));

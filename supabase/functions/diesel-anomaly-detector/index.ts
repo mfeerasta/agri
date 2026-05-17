@@ -5,6 +5,7 @@
 
 import { getServiceClient, jsonResponse, pktTodayIso, pktAddDays } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 const THRESHOLD_PCT = 15;
 
 interface DailyLogRow {
@@ -17,7 +18,7 @@ interface DailyLogRow {
   anomaly_flag: string | null;
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('diesel-anomaly-detector', async () => {
   const supabase = getServiceClient();
   const today = pktTodayIso();
   const windowStart = pktAddDays(today, -30);
@@ -106,4 +107,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ flagged });
-});
+}));

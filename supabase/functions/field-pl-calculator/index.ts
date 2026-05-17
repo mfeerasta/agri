@@ -6,6 +6,7 @@
 
 import { getServiceClient, jsonResponse } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface CropPlanRow {
   id: string;
   field_id: string;
@@ -20,7 +21,7 @@ interface CostAllocRow {
   amount_pkr: string;
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('field-pl-calculator', async () => {
   const supabase = getServiceClient();
 
   const { data: plansRaw, error } = await supabase
@@ -99,4 +100,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ written });
-});
+}));

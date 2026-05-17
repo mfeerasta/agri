@@ -9,6 +9,7 @@
 import webpush from 'web-push';
 import { and, eq } from 'drizzle-orm';
 import { db, pushSubscriptions } from '@zameen/db';
+import { sendFcmToToken } from './fcm.js';
 
 export interface PushPayload {
   title: string;
@@ -85,7 +86,11 @@ export async function sendPush(
 }
 
 async function pruneOrPenalize(rowId: string, result: PushErr): Promise<void> {
-  if (result.statusCode === 404 || result.statusCode === 410) {
+  const fcmGone =
+    result.error?.startsWith('UNREGISTERED') ||
+    result.error?.startsWith('INVALID_ARGUMENT') ||
+    result.error?.startsWith('NOT_FOUND');
+  if (result.statusCode === 404 || result.statusCode === 410 || fcmGone) {
     await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, rowId));
     return;
   }
@@ -121,6 +126,8 @@ export async function sendPushToUser(
       endpoint: pushSubscriptions.endpoint,
       p256dh: pushSubscriptions.p256dh,
       auth: pushSubscriptions.auth,
+      platform: pushSubscriptions.platform,
+      nativeToken: pushSubscriptions.nativeToken,
     })
     .from(pushSubscriptions)
     .where(filter);
@@ -129,10 +136,24 @@ export async function sendPushToUser(
 
   const settled = await Promise.allSettled(
     rows.map(async (row) => {
-      const r = await sendPush(
-        { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth },
-        payload,
-      );
+      let r: SendResult;
+      if (row.platform === 'ios' || row.platform === 'android') {
+        if (!row.nativeToken) {
+          r = { ok: false, statusCode: 0, error: 'missing-native-token' };
+        } else {
+          const fcm = await sendFcmToToken(row.nativeToken, row.platform, payload);
+          r = fcm.ok
+            ? { ok: true }
+            : { ok: false, statusCode: fcm.statusCode, error: fcm.error ?? 'fcm-failed' };
+        }
+      } else if (row.endpoint && row.p256dh && row.auth) {
+        r = await sendPush(
+          { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth },
+          payload,
+        );
+      } else {
+        r = { ok: false, statusCode: 0, error: 'web-row-missing-keys' };
+      }
       if (r.ok) {
         await db
           .update(pushSubscriptions)

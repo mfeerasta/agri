@@ -5,6 +5,7 @@
 
 import { getServiceClient, jsonResponse } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface ApprovalRow {
   id: string;
   entity_id: string;
@@ -15,7 +16,7 @@ interface ApprovalRow {
   amount_pkr: string | null;
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('approval-escalation', async () => {
   const supabase = getServiceClient();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -66,4 +67,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ nudged });
-});
+}));

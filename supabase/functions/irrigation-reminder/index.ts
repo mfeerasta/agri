@@ -6,6 +6,7 @@
 
 import { getServiceClient, jsonResponse, pktTodayIso } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface WaterScheduleEntry {
   fieldCode?: string;
   weekday?: number;
@@ -27,7 +28,7 @@ interface FieldRow {
   blocks: { farm_id: string; farms: { entity_id: string } } | null;
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('irrigation-reminder', async () => {
   const supabase = getServiceClient();
   const today = pktTodayIso();
   const weekday = new Date(today + 'T00:00:00Z').getUTCDay();
@@ -105,4 +106,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ notified, slots: slotsToday.length });
-});
+}));

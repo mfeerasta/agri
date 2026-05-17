@@ -86,6 +86,7 @@ export const taskCompletions = zameen.table('task_completions', {
   hoursWorked: decimal('hours_worked', { precision: 6, scale: 2 }),
   notes: text('notes'),
   proofPhotoUrls: jsonb('proof_photo_urls').$type<string[]>().notNull().default([]),
+  isTraining: boolean('is_training').notNull().default(false),
 });
 
 export const pieceRateLogs = zameen.table('piece_rate_logs', {

@@ -44,6 +44,7 @@ export const USER_ROLES = [
   'accountant',
   'worker',
   'viewer',
+  'auditor',
 ] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
@@ -55,6 +56,7 @@ export const ROLE_RANK: Record<UserRole, number> = {
   accountant: 40,
   worker: 20,
   viewer: 10,
+  auditor: 15,
 };
 
 export const DIESEL_VARIANCE_TOLERANCE_PCT = 1.5; // 1.5% closing variance triggers alert

@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { WEB_DEFAULT_LOCALE, type Locale } from '@zameen/locale';
 import { getSessionContext } from './session';
 
-const SUPPORTED: ReadonlySet<Locale> = new Set(['ur', 'roman_ur', 'en']);
+const SUPPORTED: ReadonlySet<Locale> = new Set(['ur', 'roman_ur', 'pa', 'hi', 'en']);
 
 function coerce(v: string | undefined | null): Locale | null {
   if (!v) return null;

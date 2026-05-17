@@ -49,9 +49,12 @@ SQL
 
 cat >"$MANIFEST_FILE" <<EOF
 {
+  "filename": "zameen-$DATE.dump",
   "date": "$DATE",
   "sizeBytes": $SIZE_BYTES,
+  "sizeMb": $(awk "BEGIN {printf \"%.2f\", $SIZE_BYTES / 1048576}"),
   "sha256": "$SHA256",
+  "generatedAt": "$(date -u +%FT%TZ)",
   "rowCounts": $(echo "$ROW_COUNTS" | jq -Rsc 'split("\n") | map(select(length>0)) | map(split(":") | {(.[0]): (.[1] | tonumber)}) | add')
 }
 EOF

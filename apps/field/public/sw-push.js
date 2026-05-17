@@ -1,6 +1,14 @@
 /* Zameen Web Push handler. Imported by the main service worker via importScripts. */
 /* eslint-disable no-restricted-globals */
 
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'zameen-drain-queue') {
+    event.waitUntil(
+      fetch('/api/sync/drain-trigger', { method: 'POST' }).catch(() => undefined),
+    );
+  }
+});
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   let payload;

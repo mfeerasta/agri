@@ -16,6 +16,7 @@
 
 import { getServiceClient, jsonResponse } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 const SH_BASE = 'https://services.sentinel-hub.com';
 const TOKEN_URL = `${SH_BASE}/auth/realms/main/protocol/openid-connect/token`;
 const STATS_URL = `${SH_BASE}/api/v1/statistics`;
@@ -254,7 +255,7 @@ async function r2PutPng(key: string, body: Uint8Array): Promise<string> {
 
 // ---- Main ----
 
-Deno.serve(async () => {
+Deno.serve(instrument('ndvi-puller', async () => {
   const supabase = getServiceClient();
 
   const { data: fieldsRaw, error: fieldsErr } = await supabase
@@ -354,4 +355,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ inserts, skipped, errors, fields: fields.length });
-});
+}));

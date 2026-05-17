@@ -90,10 +90,18 @@ export default async function DashboardHome() {
       <Masthead section={t('dashboard.overview', locale)} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatBlock label={t('dashboard.pending_approvals', locale)} value="3" caption="2 with Farm Manager · 1 with MF" delta={{ value: -1, label: 'vs yesterday' }} />
-        <StatBlock label={t('dashboard.workers_present', locale)} value={<><span>18</span><span className="text-2xl text-[var(--fg-muted)] ml-1">/22</span></>} caption="Geofence-verified" />
-        <StatBlock label={t('dashboard.diesel_stock', locale)} value={<><span>3,420</span><span className="text-xl text-[var(--fg-muted)] ml-1">L</span></>} caption={t('diesel.tank', locale)} delta={{ value: 2.1 }} />
-        <StatBlock label={t('dashboard.cash_on_hand', locale)} value={<Pkr value={2_840_500} mode="lac_crore" />} caption="Soneri" delta={{ value: -8.4 }} />
+        <div data-tour="kpi-pending-approvals">
+          <StatBlock label={t('dashboard.pending_approvals', locale)} value="3" caption="2 with Farm Manager · 1 with MF" delta={{ value: -1, label: 'vs yesterday' }} />
+        </div>
+        <div data-tour="kpi-workers-present">
+          <StatBlock label={t('dashboard.workers_present', locale)} value={<><span>18</span><span className="text-2xl text-[var(--fg-muted)] ml-1">/22</span></>} caption="Geofence-verified" />
+        </div>
+        <div data-tour="kpi-diesel-stock">
+          <StatBlock label={t('dashboard.diesel_stock', locale)} value={<><span>3,420</span><span className="text-xl text-[var(--fg-muted)] ml-1">L</span></>} caption={t('diesel.tank', locale)} delta={{ value: 2.1 }} />
+        </div>
+        <div data-tour="kpi-cash">
+          <StatBlock label={t('dashboard.cash_on_hand', locale)} value={<Pkr value={2_840_500} mode="lac_crore" />} caption="Soneri" delta={{ value: -8.4 }} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">

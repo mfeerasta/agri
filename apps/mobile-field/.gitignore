@@ -1,0 +1,32 @@
+# Capacitor generated native projects (regenerate locally via `npx cap add`)
+ios/
+android/
+
+# Build artefacts
+www/
+dist/
+node_modules/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Capacitor / Cocoapods
+Pods/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# Gradle
+.gradle/
+build/
+local.properties
+gradle/wrapper/gradle-wrapper.jar
+
+# Signing
+*.keystore
+*.jks
+GoogleService-Info.plist
+google-services.json

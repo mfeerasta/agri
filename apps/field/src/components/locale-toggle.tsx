@@ -6,6 +6,8 @@ import type { Locale } from '@zameen/locale';
 const OPTIONS: { value: Locale; label: string }[] = [
   { value: 'ur', label: 'اردو' },
   { value: 'roman_ur', label: 'Roman' },
+  { value: 'pa', label: 'پنجابی' },
+  { value: 'hi', label: 'हिन्दी' },
   { value: 'en', label: 'EN' },
 ];
 
@@ -14,7 +16,7 @@ export function LocaleToggle() {
   const setLocale = useLocaleStore((s) => s.setLocale);
 
   return (
-    <div role="tablist" className="inline-flex border border-[var(--rule)]">
+    <div role="tablist" className="inline-flex flex-wrap border border-[var(--rule)]">
       {OPTIONS.map((opt) => (
         <button
           key={opt.value}

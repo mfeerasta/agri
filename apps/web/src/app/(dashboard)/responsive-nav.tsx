@@ -13,7 +13,7 @@ export interface NavItem {
 }
 
 export interface ResponsiveNavProps {
-  items: { href: string; label: string; icon: React.ReactNode }[];
+  items: { href: string; label: string; icon: React.ReactNode; tour?: string }[];
   brandTitle: string;
   brandSub: string;
   statusLabel: string;
@@ -85,11 +85,12 @@ export function ResponsiveNav({
           </div>
         </Link>
         <nav className="space-y-0.5">
-          {items.map(({ href, label, icon }) => (
+          {items.map(({ href, label, icon, tour }) => (
             <Link
               key={href}
               href={href as never}
               title={label}
+              data-tour={tour}
               className="flex items-center gap-3 rounded-[8px] px-3 py-2 text-sm text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] transition-colors min-h-[40px]"
             >
               <span className="shrink-0">{icon}</span>
@@ -137,11 +138,12 @@ export function ResponsiveNav({
               </button>
             </div>
             <nav className="space-y-0.5">
-              {items.map(({ href, label, icon }) => (
+              {items.map(({ href, label, icon, tour }) => (
                 <Link
                   key={href}
                   href={href as never}
                   onClick={() => setOpen(false)}
+                  data-tour={tour}
                   className="flex items-center gap-3 rounded-[8px] px-3 py-3 text-sm text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] min-h-[44px]"
                 >
                   <span className="shrink-0">{icon}</span>

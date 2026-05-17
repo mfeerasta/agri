@@ -25,3 +25,7 @@ export * from './automations.js';
 export * from './ndvi.js';
 export * from './push-subscriptions.js';
 export * from './crop-diagnostics.js';
+export * from './training.js';
+export * from './platform-events.js';
+export * from './digests.js';
+export * from './calendar-tokens.js';

@@ -40,6 +40,7 @@ export default async function FieldHome() {
       <Link href="/issuance"><BigButton icon={<PackageOpen />} label={t('issuance.title', locale)} tone="neutral" /></Link>
       <Link href="/livestock"><BigButton icon={<MilkOff />} label={t('livestock.title', locale)} tone="neutral" /></Link>
       <Link href="/photos"><BigButton icon={<ImageDown />} label={t('photo.queue', locale)} tone="neutral" /></Link>
+      <Link href="/sync"><BigButton icon={<ImageDown />} label="قطار اور بحالی" tone="neutral" /></Link>
       <Link href="/profile"><BigButton icon={<Camera />} label={t('nav.profile', locale)} tone="neutral" /></Link>
     </main>
   );

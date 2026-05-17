@@ -6,6 +6,7 @@
 
 import { getServiceClient, jsonResponse, pktTodayIso } from '../_shared/supabase.ts';
 
+import { instrument } from '../_shared/instrumented.ts';
 interface FarmRow {
   entity_id: string;
   centroid: { lat: number; lng: number } | null;
@@ -30,7 +31,7 @@ interface OpenWeatherPayload {
   list?: OpenWeatherEntry[];
 }
 
-Deno.serve(async () => {
+Deno.serve(instrument('weather-puller', async () => {
   const supabase = getServiceClient();
   const today = pktTodayIso();
   const provider = Deno.env.get('WEATHER_PROVIDER') ?? 'openweather';
@@ -84,4 +85,4 @@ Deno.serve(async () => {
   }
 
   return jsonResponse({ upserts, provider, targets: targets.length });
-});
+}));

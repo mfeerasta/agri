@@ -8,6 +8,7 @@ export const userRoleEnum = zameen.enum('user_role', [
   'accountant',
   'worker',
   'viewer',
+  'auditor',
 ]);
 
 export const entityKindEnum = zameen.enum('entity_kind', ['proprietorship', 'partnership', 'company', 'aop']);
