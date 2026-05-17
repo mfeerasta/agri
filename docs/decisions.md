@@ -196,3 +196,58 @@ Zameen is built for Rupafab Limited's agriculture operation. The first and curre
 ## 2026-05-17 (later): Design system pivot to flex.one-inspired dark UI
 
 Reason: MF requested flex.one's aesthetic. Replaced "Sowing Almanac" warm-paper editorial with a dark-first, premium fintech look. Palette: `#0A0A0B` background, `#15151A`/`#1C1C22` surfaces, `#F4F4F5` foreground, electric cyan `#5BE3FF` as the sole accent (used for hover, focus, links, key data points). Subtle radial gradient washes in the body background. Cards use 14px radius, 1px white-at-8% borders, soft shadows. Buttons 10px radius, fg-on-bg primary that flips to accent on hover. Typography swapped Fraunces + Inter Tight for Geist + Geist Mono (system geometric sans, premium, free via Google Fonts). Urdu retained Noto Nastaliq Urdu. StatBlocks now stacked vertical with delta pills (success-green or danger-red). Charts use single cyan stroke on dotted grid. Approval banners use coloured tint backgrounds keyed to state. Dashboard hero rebuilt with stat grid on top, two-up "today" section, field-activity card grid, hairline footer. All four apps inherit via the shared Tailwind preset.
+
+## 2026-05-17: Field PWA sync API surface
+
+Three POST endpoints under `apps/field/src/app/api/`:
+
+- `/api/sync` accepts one `QueuedOp` (resource, operation, payload, idempotencyKey) at a time. A small dispatcher in `apps/field/src/server/sync-dispatcher.ts` maps the `resource` string onto direct drizzle inserts plus the same engines the web app uses: `@zameen/approvals` for routing, `@zameen/finance` for `allocateCost`. The field app deliberately does not import server actions from `@zameen/web` so it stays independently deployable. Approval thresholds, cost-pool selection, and side-effect chains live in the dispatcher and stay in sync with the web actions by construction (shared validators, shared engines).
+
+- Idempotency. Every queued op carries a client-generated `idempotencyKey` (uuid). The route looks the key up in `zameen.idempotency_log` (migration 0008) and short-circuits with the cached response if present. This neutralises retry storms from the offline queue draining after reconnection: even if the network slips between a successful DB insert and a successful HTTP response, the next retry returns the same `{ ok, id }`. The header `x-idempotency-key` is also honoured as a fallback so future non-PWA clients can opt in without restructuring their payload.
+
+- `/api/uploads/r2-presign` runs two modes off the request content type. multipart/form-data triggers a server-mediated upload (the route streams bytes into R2 via PutObject) and returns a single `{ url }` shape, matching the contract `PhotoCapture.uploadFn` already expects. application/json returns a presigned PUT URL so the browser can upload binary content directly to R2; the offline-queue photo drainer uses this path to keep large blobs off the Next.js runtime. Both modes share the same key shape (`prefix/userId/timestamp-filename`) so swapping between them in a deployment does not change the underlying object layout.
+
+- `/api/transcribe` proxies to OpenAI Whisper as Phase 1 STT. Multipart `audio` + optional `lang` ('ur' | 'en'). Whisper covers Urdu adequately for field-notes-grade transcription while we hold for a Phase 3 Nemotron / Urdu-Punjabi fine-tune that can run on-prem. The API key never reaches the browser; the route is the only egress.
+
+Reason. The field PWA was POSTing to three endpoints that did not exist. Building them now with idempotency + dispatcher decoupling means the offline queue can safely retry, and future resource types only need to register a handler in one place.
+
+## 2026-05-17, PostGIS geometry via raw SQL, not a custom Drizzle type
+
+**Decision.** Keep `fields.geometry` and `blocks.geometry` declared as `jsonb()` in the Drizzle schema. The actual database column is converted to `geometry(MultiPolygon, 4326)` by migration `0006_geometry_columns.sql`. All seed-time and server-action writes that touch geometry go through a raw SQL helper, `zameen.geom_from_json(text)`, that wraps `ST_SetSRID(ST_GeomFromGeoJSON(...), 4326)` and `ST_Multi(...)`.
+
+**Why.** Drizzle does not have a first-class PostGIS column type. The two viable alternatives (a `customType` wrapper, or a community PostGIS plugin) each carry pain: `customType` lies to the introspector about the column shape and the generated migrations drift; the plugin path adds a dependency we do not need yet. Application code never reads geometry into JS (only the future Mapbox editor will), and the only writer in Phase 1 is the seed. A typed `geom_from_json` SQL helper is shorter, simpler, and keeps the Drizzle generator honest about what the initial migration creates.
+
+**Alternatives considered.** A Drizzle `customType` emitting `geometry(MultiPolygon, 4326)` directly (forces the initial migration to require PostGIS, complicates seeding); migrating to a community plugin (premature dependency); doing all geometry interaction over RPC only (less ergonomic in the seed).
+
+**Implications.** Reads of geometry from server code must explicitly cast (`ST_AsGeoJSON(geometry)::jsonb as geometry`) when round-tripping through Drizzle. Phase 2 may revisit when the field-polygon editor lands and we need round-trip read/write at scale. Schema docstrings call out the jsonb/PostGIS divergence.
+
+## 2026-05-17, Runtime config injected via psql, not migration
+
+**Decision.** Service role JWT, Supabase project URL, and the CNIC pgcrypto key are written to the database parameter store via `alter database postgres set app.<key> = '<value>'` from a shell script (`supabase/scripts/inject-runtime-config.sh`), not from a migration file.
+
+**Why.** Migrations are checked into git and run identically across environments. Secrets cannot live there. Storing them as database GUCs lets `pg_cron` background workers and pgcrypto wrappers read them with `current_setting('app.<key>', true)` while keeping the secret material out of the repo. The injector is idempotent and rerunning rotates the value.
+
+**Alternatives considered.** Hardcoding in migration (rejected, secret leakage); vault extension (overkill for three values); environment variables on each session (does not work for pg_cron's background sessions).
+
+**Implications.** A new environment needs both `bash supabase/scripts/migrate-all.sh` and the injector to be functional. Documented in `docs/deployment.md` and the migrations README. Rotation is a single-command operation.
+
+## 2026-05-17, Strict migration ordering with idempotent orchestrator
+
+**Decision.** Ten ordered steps (init schema, Drizzle migrate, RLS, storage, cron/triggers, CNIC encryption, geometry columns, RPCs, idempotency log, seed) wrapped by `supabase/scripts/migrate-all.sh`. Every SQL file uses `if not exists`/`create or replace`. The seed runs after `0006_geometry_columns.sql` because field and block geometry inserts now pass through `zameen.geom_from_json`.
+
+**Why.** Hand-written SQL depends on Drizzle-generated tables; PostGIS conversion depends on the seed's input shape; RPCs depend on RLS being live. Without a single canonical order, an operator who reapplies migrations halfway gets a half-broken DB. The orchestrator + idempotency removes the foot-gun.
+
+**Alternatives considered.** Folding everything into Drizzle's own migration runner (Drizzle does not run arbitrary SQL files in order); using Supabase's migration tooling exclusively (we want Drizzle's TS schema as source of truth); Atlas (extra dependency).
+
+**Implications.** New SQL goes through `supabase/migrations/00NN_*.sql` and gets a numbered slot in `migrate-all.sh`. Drizzle owns table/enum DDL only. Documented in `packages/db/migrations/README.md`.
+
+
+## 2026-05-17: Production hosting on Hetzner CPX31, secrets via Doppler, weekly autopull
+
+**Decision.** Production runs on a single Hetzner CPX31 VPS in Falkenstein (DE), Docker Compose with four Next.js standalone containers behind Caddy, fronted by Cloudflare proxy. Secrets live in Doppler (`zameen` project, `prod` config); the VPS pulls them at boot via a service token, falling back to a hand-edited `/opt/zameen/.env` when Doppler is unreachable. A systemd timer (`zameen-autopull.timer`) does a weekly `git pull && docker compose pull && up -d` on Sunday 03:00 UTC to catch base-image patches with no human in the loop. Daily logical `pg_dump --schema=zameen` ships to Cloudflare R2 bucket `zameen-backups` (30-day retention) via cron at 02:30 UTC, complementing Supabase managed PITR. Cloudflare Tunnel is supported (optional, recommended post-pilot) to remove public 80/443 from the firewall entirely.
+
+**Reason.** Vercel was the obvious default but loses on three axes that matter here. (1) Cost. Four PWAs with photo-heavy traffic on Vercel would run several hundred USD a month at our pilot scale; the CPX31 is roughly twelve EUR a month plus modest R2 egress. (2) Control. Caddy plus Docker Compose lets the operator SSH in, read logs, and restart a container without going through a vendor UI; for a single-tenant farm-ops app run by a finance director that matters. (3) EU data residency. Falkenstein keeps photo metadata and approval audit logs in the EU alongside Supabase EU. Doppler over a hand-managed `.env` because rotating secrets across containers becomes painful otherwise; service tokens make rebuilds trivial. Weekly auto-pull because security patches matter more than zero-downtime in the pilot phase; a five-second blip on Sunday morning is acceptable.
+
+**Alternatives considered.** Vercel for everything (rejected: cost and photo egress). AWS ECS Fargate (rejected: ops complexity for a single-VPS workload). Kubernetes on Hetzner (rejected: massive overkill for four containers). Self-hosted Supabase on the same VPS (rejected: PITR and auth are not worth re-implementing). HashiCorp Vault for secrets (rejected: ops overhead; Doppler is fine for a team of one). Always-on Cloudflare Tunnel (deferred: keeps the pilot ops loop simple, switch on post-pilot).
+
+**Implications.** Disaster recovery is "spin up a fresh CPX31, run `deploy/bootstrap-vps.sh`, repoint the floating IP, `docker compose up -d`"; total downtime budget under thirty minutes. Every script under `deploy/` must remain idempotent because the bootstrap script is the runbook. The VPS holds zero durable state; everything material is in Supabase or R2. Health checks live at `/api/health` on each app and are exercised by `deploy/health-check.sh` (cron-friendly) and by Docker's own `HEALTHCHECK` directive. The full operator-facing runbook is `docs/deployment.md`.

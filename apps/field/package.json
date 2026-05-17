@@ -16,6 +16,8 @@
     "@zameen/locale": "workspace:*",
     "@zameen/approvals": "workspace:*",
     "@zameen/finance": "workspace:*",
+    "@aws-sdk/client-s3": "^3.682.0",
+    "@aws-sdk/s3-request-presigner": "^3.682.0",
     "@hookform/resolvers": "^3.9.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.1",

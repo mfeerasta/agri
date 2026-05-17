@@ -3,6 +3,16 @@ import { zameen } from './_schema.js';
 import { entities } from './core.js';
 import { landTenureEnum } from './enums.js';
 
+// NOTE: `blocks.geometry` and `fields.geometry` are declared as jsonb here so
+// the initial Drizzle migration creates them cleanly. After migration
+// `supabase/migrations/0006_geometry_columns.sql` runs, those columns become
+// `geometry(MultiPolygon, 4326)` in the live database. Writes must go through
+// the SQL helper `zameen.geom_from_json(text)` (see seed.ts), and reads should
+// project via `ST_AsGeoJSON(geometry)::jsonb`. See
+// `docs/decisions.md` (2026-05-17 entry on PostGIS) for full rationale.
+// TODO Phase 2: swap to a proper PostGIS Drizzle plugin once we wire the
+// Mapbox field-polygon editor.
+
 export const farms = zameen.table('farms', {
   id: uuid('id').primaryKey().defaultRandom(),
   entityId: uuid('entity_id').notNull().references(() => entities.id, { onDelete: 'cascade' }),

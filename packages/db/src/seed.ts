@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql as dsql } from 'drizzle-orm';
 import { db, sql } from './index.js';
 import {
   entities,
@@ -351,10 +351,16 @@ async function main() {
   const [farm] = await db.select().from(farms).where(eq(farms.code, 'AGRI-RWD')).limit(1);
   if (!farm) throw new Error('Farm missing after insert');
 
-  await db
-    .insert(blocks)
-    .values({ farmId: farm.id, code: 'B1', name: 'Block 1', acres: '100', geometry: squarePolygon(31.25, 74.15, 0.02) })
-    .onConflictDoNothing();
+  // Block geometry goes through PostGIS after migration 0006. Insert via raw
+  // SQL so the GeoJSON shape is converted to geometry(MultiPolygon, 4326).
+  {
+    const blockGeom = JSON.stringify(squarePolygon(31.25, 74.15, 0.02));
+    await db.execute(dsql`
+      insert into zameen.blocks (farm_id, code, name, acres, geometry)
+      values (${farm.id}, 'B1', 'Block 1', '100', zameen.geom_from_json(${blockGeom}))
+      on conflict do nothing
+    `);
+  }
   const [block] = await db.select().from(blocks).where(eq(blocks.code, 'B1')).limit(1);
   if (!block) throw new Error('Block missing');
 
@@ -365,15 +371,15 @@ async function main() {
     const code = `F${i + 1}`;
     const lat = 31.25 + (i % 4) * 0.005;
     const lng = 74.15 + Math.floor(i / 4) * 0.005;
-    await db
-      .insert(fields)
-      .values({
-        blockId: block.id,
-        code,
-        acres: String(fieldAcres[i]),
-        geometry: squarePolygon(lat, lng, 0.0045),
-      })
-      .onConflictDoNothing();
+    const acresStr = String(fieldAcres[i]);
+    const geomJson = JSON.stringify(squarePolygon(lat, lng, 0.0045));
+    // Raw SQL because fields.geometry is PostGIS geometry(MultiPolygon, 4326)
+    // after migration 0006. Drizzle still sees it as jsonb in the schema.
+    await db.execute(dsql`
+      insert into zameen.fields (block_id, code, acres, geometry)
+      values (${block.id}, ${code}, ${acresStr}, zameen.geom_from_json(${geomJson}))
+      on conflict do nothing
+    `);
     const [f] = await db.select().from(fields).where(eq(fields.code, code)).limit(1);
     if (f) insertedFieldIds.push(f.id);
   }
