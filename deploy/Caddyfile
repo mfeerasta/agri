@@ -1,0 +1,33 @@
+# Zameen reverse proxy. TLS via Cloudflare-issued cert; Caddy fetches its
+# own via ACME if Cloudflare proxying is off. Use `tls internal` for staging.
+
+{
+    email meerfeerasta@gmail.com
+}
+
+agri.feerasta.ai {
+    encode zstd gzip
+    reverse_proxy web:3000
+}
+
+field.agri.feerasta.ai {
+    encode zstd gzip
+    reverse_proxy field:3001
+}
+
+ops.agri.feerasta.ai {
+    encode zstd gzip
+    reverse_proxy ops:3002
+}
+
+approve.agri.feerasta.ai {
+    encode zstd gzip
+    reverse_proxy approve:3003
+}
+
+api.agri.feerasta.ai {
+    encode zstd gzip
+    # Edge functions are served from Supabase directly; this host is
+    # reserved for any custom Node API service in future.
+    respond "Not configured" 404
+}

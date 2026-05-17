@@ -1,0 +1,75 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        APP: web
+    image: zameen/web:latest
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+    ports: ["3000:3000"]
+    restart: unless-stopped
+
+  field:
+    build:
+      context: .
+      args:
+        APP: field
+    image: zameen/field:latest
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      PORT: 3001
+    ports: ["3001:3001"]
+    restart: unless-stopped
+
+  ops:
+    build:
+      context: .
+      args:
+        APP: ops
+    image: zameen/ops:latest
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      PORT: 3002
+    ports: ["3002:3002"]
+    restart: unless-stopped
+
+  approve:
+    build:
+      context: .
+      args:
+        APP: approve
+    image: zameen/approve:latest
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: 3003
+    ports: ["3003:3003"]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, field, ops, approve]
+
+volumes:
+  caddy_data:
+  caddy_config:

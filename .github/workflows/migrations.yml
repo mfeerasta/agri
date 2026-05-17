@@ -1,0 +1,80 @@
+name: migrations
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'packages/db/migrations/**'
+
+jobs:
+  apply-migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: zameen
+          POSTGRES_PASSWORD: zameen
+          POSTGRES_DB: zameen_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zameen"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://zameen:zameen@localhost:5432/zameen_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply supabase migrations
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for f in supabase/migrations/*.sql; do
+            echo "==> applying $f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Apply drizzle migrations (if present)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for f in packages/db/migrations/*.sql; do
+            echo "==> applying $f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Build migration plan
+        id: plan
+        run: |
+          {
+            echo "plan<<EOF"
+            echo "### Migration plan"
+            echo ""
+            echo "Applied files (in order):"
+            shopt -s nullglob
+            for f in supabase/migrations/*.sql packages/db/migrations/*.sql; do
+              echo "- \`$f\`"
+            done
+            echo ""
+            echo "Run on Postgres 16. All applied with ON_ERROR_STOP."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: migrations
+          message: ${{ steps.plan.outputs.plan }}

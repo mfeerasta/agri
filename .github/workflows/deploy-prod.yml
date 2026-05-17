@@ -1,0 +1,94 @@
+name: deploy-prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA promoted from staging (matches staging-<sha> image tag)'
+        required: true
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  promote-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+      INPUT_SHA: ${{ inputs.sha }}
+      STAGING_TAG: staging-${{ inputs.sha }}
+      PROD_TAG: prod-${{ inputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote images staging-<sha> to prod-<sha> + prod-latest
+        run: |
+          set -euo pipefail
+          for app in web field ops approve; do
+            src="$IMAGE_PREFIX/$app:$STAGING_TAG"
+            dst1="$IMAGE_PREFIX/$app:$PROD_TAG"
+            dst2="$IMAGE_PREFIX/$app:prod-latest"
+            echo "==> promoting $src to $dst1 and $dst2"
+            docker buildx imagetools create --tag "$dst1" --tag "$dst2" "$src"
+          done
+
+      - name: SSH deploy to prod VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_VPS_HOST }}
+          username: ${{ secrets.PROD_VPS_USER }}
+          key: ${{ secrets.PROD_VPS_SSH_KEY }}
+          envs: PROD_TAG,IMAGE_PREFIX
+          script: |
+            set -euo pipefail
+            cd /opt/zameen
+            if [ -x deploy/deploy.sh ]; then
+              deploy/deploy.sh "$PROD_TAG"
+            elif [ -x infra/deploy.sh ]; then
+              infra/deploy.sh "$PROD_TAG"
+            else
+              docker compose pull
+              docker compose up -d
+            fi
+
+      - name: Prod smoke test
+        run: |
+          set -euo pipefail
+          for u in \
+            https://agri.feerasta.ai/healthz \
+            https://field.agri.feerasta.ai/healthz \
+            https://approve.agri.feerasta.ai/healthz \
+            https://ops.agri.feerasta.ai/healthz
+          do
+            echo "==> $u"
+            curl --fail --silent --show-error --max-time 15 "$u" >/dev/null
+          done
+
+      - name: Notify via webhook
+        if: always()
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOY_NOTIFY_WEBHOOK }}
+          STATUS: ${{ job.status }}
+        run: |
+          if [ -z "${WEBHOOK_URL}" ]; then
+            echo "No webhook configured; skipping."
+            exit 0
+          fi
+          payload=$(jq -n \
+            --arg tag "$PROD_TAG" \
+            --arg sha "$INPUT_SHA" \
+            --arg status "$STATUS" \
+            '{text: ("Prod deploy " + $status + " for " + $tag + " (" + $sha + ")")}')
+          curl --fail --silent --show-error -X POST -H 'Content-Type: application/json' \
+            --data "$payload" "$WEBHOOK_URL"

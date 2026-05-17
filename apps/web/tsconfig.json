@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@zameen/db": ["../../packages/db/src"],
+      "@zameen/db/*": ["../../packages/db/src/*"],
+      "@zameen/shared": ["../../packages/shared/src"],
+      "@zameen/shared/*": ["../../packages/shared/src/*"],
+      "@zameen/ui": ["../../packages/ui/src"],
+      "@zameen/ui/*": ["../../packages/ui/src/*"],
+      "@zameen/approvals": ["../../packages/approvals/src"],
+      "@zameen/finance": ["../../packages/finance/src"],
+      "@zameen/locale": ["../../packages/locale/src"]
+    }
+  },
+  "include": ["next-env.d.ts", "src/**/*", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@zameen/field",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@zameen/db": "workspace:*",
+    "@zameen/shared": "workspace:*",
+    "@zameen/ui": "workspace:*",
+    "@zameen/locale": "workspace:*",
+    "@zameen/approvals": "workspace:*",
+    "@zameen/finance": "workspace:*",
+    "@hookform/resolvers": "^3.9.1",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.46.1",
+    "idb-keyval": "^6.2.1",
+    "lucide-react": "^0.460.0",
+    "next": "^15.0.3",
+    "react": "^19.0.0-rc.1",
+    "react-dom": "^19.0.0-rc.1",
+    "react-hook-form": "^7.54.0",
+    "uuid": "^11.0.3",
+    "workbox-window": "^7.3.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "npm:types-react@rc",
+    "@types/react-dom": "npm:types-react-dom@rc",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.20",
+    "next-pwa": "^5.6.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3"
+  }
+}

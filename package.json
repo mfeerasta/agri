@@ -1,0 +1,46 @@
+{
+  "name": "zameen",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "eslint .",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:int": "RUN_INT_TESTS=1 vitest run --testTimeout=180000 --hookTimeout=180000 packages/approvals/src/__tests__/integration",
+    "test:e2e": "playwright test",
+    "db:generate": "pnpm --filter @zameen/db generate",
+    "db:migrate": "pnpm --filter @zameen/db migrate",
+    "db:push": "pnpm --filter @zameen/db push",
+    "db:seed": "pnpm --filter @zameen/db seed",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.3",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "@types/node": "^22.9.0",
+    "eslint": "^9.14.0",
+    "@eslint/js": "^9.14.0",
+    "typescript-eslint": "^8.14.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-tailwindcss": "^3.17.5",
+    "vitest": "^2.1.5",
+    "@vitest/coverage-v8": "^2.1.5",
+    "@playwright/test": "^1.48.2",
+    "@supabase/supabase-js": "^2.46.1",
+    "@testcontainers/postgresql": "^10.13.2",
+    "postgres": "^3.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

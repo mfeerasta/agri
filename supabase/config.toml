@@ -1,0 +1,43 @@
+project_id = "zameen-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "zameen", "storage", "graphql_public"]
+extra_search_path = ["public", "zameen", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3003",
+  "https://agri.feerasta.ai",
+  "https://field.agri.feerasta.ai",
+  "https://ops.agri.feerasta.ai",
+  "https://approve.agri.feerasta.ai"
+]
+jwt_expiry = 28800
+enable_signup = false
+
+[auth.sms]
+enable_signup = false
+
+[auth.external.phone]
+enabled = true

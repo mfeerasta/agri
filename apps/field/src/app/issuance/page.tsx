@@ -1,0 +1,10 @@
+import { IssuanceForm } from './issuance-form';
+
+export default function IssuancePage() {
+  return (
+    <main className="mx-auto max-w-md p-4 space-y-3">
+      <h1 className="font-display text-2xl text-[var(--zameen-700)]">اجراء</h1>
+      <IssuanceForm />
+    </main>
+  );
+}

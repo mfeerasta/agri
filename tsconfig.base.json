@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@zameen/db": ["./packages/db/src"],
+      "@zameen/db/*": ["./packages/db/src/*"],
+      "@zameen/shared": ["./packages/shared/src"],
+      "@zameen/shared/*": ["./packages/shared/src/*"],
+      "@zameen/ui": ["./packages/ui/src"],
+      "@zameen/ui/*": ["./packages/ui/src/*"],
+      "@zameen/approvals": ["./packages/approvals/src"],
+      "@zameen/approvals/*": ["./packages/approvals/src/*"],
+      "@zameen/finance": ["./packages/finance/src"],
+      "@zameen/finance/*": ["./packages/finance/src/*"],
+      "@zameen/locale": ["./packages/locale/src"],
+      "@zameen/locale/*": ["./packages/locale/src/*"]
+    }
+  },
+  "exclude": ["node_modules", ".next", "dist", "build"]
+}
