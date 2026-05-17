@@ -1,20 +1,44 @@
-export function fmtDate(d: Date | string | null | undefined): string {
-  if (!d) return '—';
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+import type { Locale } from '@zameen/locale';
+
+function localeTag(locale: Locale | undefined): string {
+  return locale === 'ur' ? 'ur-PK' : 'en-PK';
 }
 
-export function fmtDateTime(d: Date | string | null | undefined): string {
+export function fmtDate(d: Date | string | null | undefined, locale?: Locale): string {
   if (!d) return '—';
   const dt = typeof d === 'string' ? new Date(d) : d;
-  return dt.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Intl.DateTimeFormat(localeTag(locale), {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(dt);
 }
 
-export function fmtNumber(n: number | string | null | undefined, frac = 2): string {
+export function fmtDateTime(d: Date | string | null | undefined, locale?: Locale): string {
+  if (!d) return '—';
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  return new Intl.DateTimeFormat(localeTag(locale), {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(dt);
+}
+
+export function fmtNumber(
+  n: number | string | null | undefined,
+  frac: number = 2,
+  locale?: Locale,
+  useEasternNumerals: boolean = false,
+): string {
   if (n == null) return '—';
   const num = typeof n === 'string' ? Number(n) : n;
   if (!Number.isFinite(num)) return '—';
-  return new Intl.NumberFormat('en-PK', { minimumFractionDigits: frac, maximumFractionDigits: frac }).format(num);
+  const tag = locale === 'ur' && useEasternNumerals ? 'ur-PK' : 'en-PK';
+  return new Intl.NumberFormat(tag, {
+    minimumFractionDigits: frac,
+    maximumFractionDigits: frac,
+  }).format(num);
 }
 
 export function parseGeometry(raw: string): unknown | null {

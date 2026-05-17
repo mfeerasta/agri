@@ -1,11 +1,14 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@zameen/ui';
+import { Card, CardContent, CardHeader, CardTitle, Masthead, SectionDivider } from '@zameen/ui';
 import { db, dieselAnomalies } from '@zameen/db';
 import { eq, count } from 'drizzle-orm';
+import { t } from '@zameen/locale';
+import { getLocale } from '@/lib/locale';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DieselHome() {
+  const locale = await getLocale();
   const [openRow] = await db
     .select({ n: count() })
     .from(dieselAnomalies)
@@ -29,34 +32,33 @@ export default async function DieselHome() {
             color: critCount > 0 ? 'var(--danger)' : 'var(--warning)',
           }}
         >
-          {openCount} open diesel anomal{openCount === 1 ? 'y' : 'ies'}
-          {critCount > 0 ? ` (${critCount} critical)` : ''}. Review and acknowledge.
+          {openCount} {t('diesel.open_anomalies_alert', locale)}
+          {critCount > 0 ? ` (${critCount} ${t('dashboard.critical', locale)})` : ''}. {t('diesel.review_acknowledge', locale)}.
         </Link>
       ) : null}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Diesel & Fuel</h1>
-        <div className="flex gap-2">
-          <Link href={'/diesel/purchases/new' as never} className="rounded-md bg-emerald-700 px-4 py-2 text-white">New purchase</Link>
-          <Link href={'/diesel/logs/new' as never} className="rounded-md bg-emerald-600 px-4 py-2 text-white">Daily log</Link>
-          <Link href={'/diesel/reconcile' as never} className="rounded-md bg-slate-700 px-4 py-2 text-white">Reconcile</Link>
-          <Link href={'/diesel/anomalies' as never} className="rounded-md bg-slate-600 px-4 py-2 text-white">Anomalies</Link>
-        </div>
+      <Masthead section={t('diesel.title', locale)} />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Link href={'/diesel/purchases/new' as never} className="rounded-md bg-emerald-700 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('diesel.new_purchase', locale)}</Link>
+        <Link href={'/diesel/logs/new' as never} className="rounded-md bg-emerald-600 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('diesel.daily_log', locale)}</Link>
+        <Link href={'/diesel/reconcile' as never} className="rounded-md bg-slate-700 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('diesel.reconcile', locale)}</Link>
+        <Link href={'/diesel/anomalies' as never} className="rounded-md bg-slate-600 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('dashboard.open_anomalies', locale)}</Link>
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
+      <SectionDivider />
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader><CardTitle className="text-sm">Stock today</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('diesel.stock_today', locale)}</CardTitle></CardHeader>
           <CardContent className="text-3xl font-semibold">0 L</CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">Cost per acre (30d)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('diesel.cost_per_acre_30d', locale)}</CardTitle></CardHeader>
           <CardContent className="text-3xl font-semibold">—</CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">L/hr — rolling 30d</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('diesel.lph_30d', locale)}</CardTitle></CardHeader>
           <CardContent className="text-3xl font-semibold">—</CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">Open anomalies</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('dashboard.open_anomalies', locale)}</CardTitle></CardHeader>
           <CardContent
             className="text-3xl font-semibold"
             style={{ color: critCount > 0 ? 'var(--danger)' : openCount > 0 ? 'var(--warning)' : undefined }}

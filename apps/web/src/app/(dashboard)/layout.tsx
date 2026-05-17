@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { NotificationsBell } from '@zameen/ui';
+import { NotificationsBell, HelpDrawer, GlobalSearch, HelpContextProvider } from '@zameen/ui';
 import {
   LayoutDashboard,
   MapPin,
@@ -17,61 +16,60 @@ import {
   FileText,
   Settings,
 } from 'lucide-react';
+import { t } from '@zameen/locale';
+import { getLocale } from '@/lib/locale';
+import { ResponsiveNav } from './responsive-nav';
+import { LocaleSwitcherWrapper } from './locale-switcher-wrapper';
 
-const NAV: { href: string; label: string; icon: typeof LayoutDashboard }[] = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/fields', label: 'Fields', icon: MapPin },
-  { href: '/crops', label: 'Crops', icon: Sprout },
-  { href: '/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/diesel', label: 'Diesel', icon: Fuel },
-  { href: '/repairs', label: 'Repairs', icon: Wrench },
-  { href: '/livestock', label: 'Livestock', icon: Beef },
-  { href: '/labor', label: 'Labor', icon: Users },
-  { href: '/procurement', label: 'Procurement', icon: ShoppingCart },
-  { href: '/sales', label: 'Sales', icon: Receipt },
-  { href: '/finance', label: 'Finance', icon: Coins },
-  { href: '/compliance', label: 'Compliance', icon: FileText },
-  { href: '/approvals', label: 'Approvals', icon: CheckSquare },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/admin/settings', label: 'Admin', icon: Settings },
-];
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const isRtl = locale === 'ur';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const NAV = [
+    { href: '/', label: t('nav.dashboard', locale), icon: <LayoutDashboard size={16} strokeWidth={1.8} /> },
+    { href: '/fields', label: t('nav.fields', locale), icon: <MapPin size={16} strokeWidth={1.8} /> },
+    { href: '/crops', label: t('nav.crops', locale), icon: <Sprout size={16} strokeWidth={1.8} /> },
+    { href: '/inventory', label: t('nav.inventory', locale), icon: <Boxes size={16} strokeWidth={1.8} /> },
+    { href: '/diesel', label: t('nav.diesel', locale), icon: <Fuel size={16} strokeWidth={1.8} /> },
+    { href: '/repairs', label: t('nav.repairs', locale), icon: <Wrench size={16} strokeWidth={1.8} /> },
+    { href: '/livestock', label: t('nav.livestock', locale), icon: <Beef size={16} strokeWidth={1.8} /> },
+    { href: '/labor', label: t('nav.labor', locale), icon: <Users size={16} strokeWidth={1.8} /> },
+    { href: '/procurement', label: t('nav.procurement', locale), icon: <ShoppingCart size={16} strokeWidth={1.8} /> },
+    { href: '/sales', label: t('nav.sales', locale), icon: <Receipt size={16} strokeWidth={1.8} /> },
+    { href: '/finance', label: t('nav.finance', locale), icon: <Coins size={16} strokeWidth={1.8} /> },
+    { href: '/compliance', label: t('nav.compliance', locale), icon: <FileText size={16} strokeWidth={1.8} /> },
+    { href: '/approvals', label: t('nav.approvals', locale), icon: <CheckSquare size={16} strokeWidth={1.8} /> },
+    { href: '/reports', label: t('nav.reports', locale), icon: <BarChart3 size={16} strokeWidth={1.8} /> },
+    { href: '/admin/settings', label: t('nav.admin', locale), icon: <Settings size={16} strokeWidth={1.8} /> },
+  ];
+
   return (
-    <div className="grid min-h-screen grid-cols-[240px_1fr] bg-[var(--bg)] text-[var(--fg)]">
-      <aside className="sticky top-0 h-screen overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-2)] px-4 py-5">
-        <Link href={'/' as never} className="block mb-8 group">
-          <div className="font-display text-2xl font-semibold tracking-tight text-[var(--fg)] group-hover:text-[var(--accent)] transition-colors">
-            Zameen
+    <div
+      lang={locale === 'ur' ? 'ur' : 'en'}
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className={`flex min-h-screen bg-[var(--bg)] text-[var(--fg)] ${isRtl ? 'flex-row-reverse' : ''}`}
+    >
+      <ResponsiveNav
+        items={NAV}
+        brandTitle={t('app.title', locale)}
+        brandSub="Rupafab Agri · Raiwind"
+        statusLabel={t('nav.status', locale)}
+        statusValue={t('dashboard.systems_normal', locale)}
+        locale={locale}
+        rtl={isRtl}
+        menuLabel={t('nav.menu', locale)}
+      />
+      <HelpContextProvider>
+        <main className="flex-1 min-w-0 px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 max-w-[1500px] mx-auto w-full">
+          <div className={`mb-4 flex items-center gap-3 ${isRtl ? 'justify-start' : 'justify-end'}`}>
+            <GlobalSearch />
+            <LocaleSwitcherWrapper current={locale} />
+            <NotificationsBell />
           </div>
-          <div className="smallcaps mt-1">Rupafab Agri · Raiwind</div>
-        </Link>
-        <nav className="space-y-0.5">
-          {NAV.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href as never}
-              className="flex items-center gap-3 rounded-[8px] px-3 py-2 text-sm text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] transition-colors"
-            >
-              <Icon size={16} strokeWidth={1.8} />
-              <span>{label}</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-8 pt-4 border-t border-[var(--border)]">
-          <div className="smallcaps mb-2">Status</div>
-          <div className="flex items-center gap-2 text-xs text-[var(--fg-muted)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
-            All systems normal
-          </div>
-        </div>
-      </aside>
-      <main className="px-8 py-8 max-w-[1500px] mx-auto w-full">
-        <div className="flex justify-end mb-4">
-          <NotificationsBell />
-        </div>
-        {children}
-      </main>
+          {children}
+        </main>
+        <HelpDrawer />
+      </HelpContextProvider>
     </div>
   );
 }

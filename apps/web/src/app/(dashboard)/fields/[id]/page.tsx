@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { db, fields, cropPlans, cropProfiles, harvestRecords, soilTests } from '@zameen/db';
+import { db, fields, cropPlans, cropProfiles, harvestRecords, soilTests, ndviObservations } from '@zameen/db';
 import { and, desc, eq } from 'drizzle-orm';
 import {
   Card,
@@ -56,6 +56,35 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
     .where(eq(soilTests.fieldId, id))
     .orderBy(desc(soilTests.testedOn));
 
+  const ndviRows = await db
+    .select({
+      id: ndviObservations.id,
+      observedOn: ndviObservations.observedOn,
+      meanNdvi: ndviObservations.meanNdvi,
+      cloudCoverPct: ndviObservations.cloudCoverPct,
+      previewImageUrl: ndviObservations.previewImageUrl,
+    })
+    .from(ndviObservations)
+    .where(eq(ndviObservations.fieldId, id))
+    .orderBy(desc(ndviObservations.observedOn))
+    .limit(60);
+
+  const ndviSeries = ndviRows
+    .slice()
+    .reverse()
+    .map((r) => ({ label: fmtDate(r.observedOn), ndvi: Number(r.meanNdvi) }));
+
+  const latestNdvi = ndviRows[0] ?? null;
+  let ndviAnomaly: { drop: number; baseline: number } | null = null;
+  if (latestNdvi) {
+    const baselineSrc = ndviRows.slice(1, 7);
+    if (baselineSrc.length >= 3) {
+      const baseline = baselineSrc.reduce((a, r) => a + Number(r.meanNdvi), 0) / baselineSrc.length;
+      const drop = baseline - Number(latestNdvi.meanNdvi);
+      if (drop > 0.2) ndviAnomaly = { drop, baseline };
+    }
+  }
+
   const currentPlan = plans[0];
   const latestPh = tests[0]?.ph ?? null;
   const yieldSeries = harvests
@@ -106,10 +135,64 @@ export default async function FieldDetailPage({ params }: { params: Promise<{ id
       {polygon.length > 0 ? (
         <Card>
           <CardContent className="p-0">
-            <FieldMap fields={polygon} />
+            <FieldMap
+              fields={polygon.map((p) => ({
+                ...p,
+                ndviPreviewUrl: latestNdvi?.previewImageUrl ?? null,
+                ndviMean: latestNdvi ? Number(latestNdvi.meanNdvi) : null,
+              }))}
+              showNdviToggle
+              ndviOverlay={latestNdvi ? 'latest' : 'none'}
+              height={420}
+              styleUrl="mapbox://styles/mapbox/satellite-streets-v12"
+            />
           </CardContent>
         </Card>
       ) : null}
+
+      <SectionDivider label="NDVI trend" />
+      {ndviAnomaly ? (
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <strong>Check field for stress.</strong> Latest NDVI dropped by {ndviAnomaly.drop.toFixed(2)} below the 30-day rolling mean ({ndviAnomaly.baseline.toFixed(2)}).
+        </div>
+      ) : null}
+      <div className="grid gap-4 md:grid-cols-2">
+        {ndviSeries.length > 0 ? (
+          <ChartCard title="Mean NDVI (last observations)" data={ndviSeries} xKey="label" yKey="ndvi" unit="NDVI 0..1" />
+        ) : (
+          <Card>
+            <CardHeader><CardTitle>NDVI</CardTitle></CardHeader>
+            <CardContent><EmptyState title="No NDVI observations yet" /></CardContent>
+          </Card>
+        )}
+        <Card>
+          <CardHeader><CardTitle>Latest observation</CardTitle></CardHeader>
+          <CardContent>
+            {latestNdvi ? (
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-slate-500">Observed</span>
+                  <span className="tabular">{fmtDate(latestNdvi.observedOn)}</span>
+                </div>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-slate-500">Mean NDVI</span>
+                  <span className="tabular text-lg">{Number(latestNdvi.meanNdvi).toFixed(3)}</span>
+                </div>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-slate-500">Cloud cover</span>
+                  <span className="tabular">{latestNdvi.cloudCoverPct !== null ? `${Number(latestNdvi.cloudCoverPct).toFixed(1)}%` : 'n/a'}</span>
+                </div>
+                {latestNdvi.previewImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={latestNdvi.previewImageUrl} alt="NDVI preview" className="w-full rounded-md border border-[var(--rule)]" />
+                ) : null}
+              </div>
+            ) : (
+              <EmptyState title="No NDVI yet" />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <SectionDivider label="History" />
       <div className="grid gap-4 md:grid-cols-2">

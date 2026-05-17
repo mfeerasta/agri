@@ -21,9 +21,9 @@ const buttonVariants = cva(
           'bg-transparent text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]',
       },
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-6 text-[0.95rem]',
+        sm: 'h-8 px-3 text-xs min-h-[40px] md:min-h-[32px]',
+        md: 'h-10 px-4 text-sm min-h-[44px] md:min-h-[40px]',
+        lg: 'h-12 px-6 text-[0.95rem] min-h-[48px] md:min-h-[48px]',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },

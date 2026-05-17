@@ -13,6 +13,7 @@ import {
 } from '@zameen/ui';
 import type { ApprovalContextSnapshot } from '@zameen/approvals';
 import { DecisionPanel } from './decision-panel';
+import { ApprovalExplainer } from './approval-explainer';
 
 function tierForAmount(thresholds: Record<string, number | null>, amount: number): string {
   const supervisor = thresholds.supervisor;
@@ -261,6 +262,8 @@ export default async function ApprovalDetail({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
       ) : null}
+
+      <ApprovalExplainer approvalRequestId={req.id} />
 
       <DecisionPanel approvalRequestId={req.id} />
 

@@ -420,6 +420,7 @@ export const plots = makeTable('plots');
 export const soilTests = makeTable('soilTests');
 export const waterSources = makeTable('waterSources');
 export const landTenureRecords = makeTable('landTenureRecords');
+export const ndviObservations = makeTable('ndviObservations');
 
 export const cropProfiles = makeTable('cropProfiles');
 export const cropPlans = makeTable('cropPlans');

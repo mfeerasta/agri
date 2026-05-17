@@ -22,3 +22,4 @@ export * from './entity-activity.js';
 export * from './entity-labels.js';
 export * from './saved-views.js';
 export * from './automations.js';
+export * from './ndvi.js';

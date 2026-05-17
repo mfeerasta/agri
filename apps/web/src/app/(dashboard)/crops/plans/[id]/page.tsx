@@ -15,6 +15,8 @@ import {
   StatBlock,
 } from '@zameen/ui';
 import { fmtDate } from '@/lib/format';
+import { AiAdvisorCard } from './ai-advisor-card';
+import { PageContextRegister } from './page-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +80,11 @@ export default async function CropPlanDetailPage({ params }: { params: Promise<{
           </Link>
         </div>
       </div>
+
+      <PageContextRegister
+        context={`Crop plan detail: ${plan.cropName ?? 'crop'} ${plan.seasonLabel}, field ${plan.fieldCode}, stage ${plan.currentStage}, ${Number(plan.plannedAcres).toFixed(2)} acres planned.`}
+      />
+      <AiAdvisorCard cropPlanId={id} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[var(--rule)]">
         <StatBlock label="Acres" value={Number(plan.plannedAcres).toFixed(2)} />

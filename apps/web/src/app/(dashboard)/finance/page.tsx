@@ -1,33 +1,35 @@
 import Link from 'next/link';
 import { Masthead, SectionDivider, Card, CardContent, CardHeader, CardTitle, StatBlock, Pkr } from '@zameen/ui';
+import { t } from '@zameen/locale';
+import { getLocale } from '@/lib/locale';
 
-const TILES = [
-  { href: '/finance/accounts', label: 'Chart of accounts', sub: 'Ledger' },
-  { href: '/finance/journal', label: 'Journal entries', sub: 'Audit walk' },
-  { href: '/finance/cost-allocations', label: 'Cost allocations', sub: 'Per field, per pool' },
-  { href: '/finance/field-pnl', label: 'Field P&L', sub: 'Killer feature' },
-  { href: '/finance/cash-flow', label: 'Cash flow', sub: '90-day forecast' },
-  { href: '/finance/reconciliation/inputs', label: 'Stock recon', sub: 'Inputs · Diesel · Bank' },
-];
-
-export default function FinanceHome() {
+export default async function FinanceHome() {
+  const locale = await getLocale();
+  const TILES = [
+    { href: '/finance/accounts', label: t('finance.accounts', locale), sub: 'Ledger' },
+    { href: '/finance/journal', label: t('finance.journal', locale), sub: 'Audit walk' },
+    { href: '/finance/cost-allocations', label: t('finance.cost_allocations', locale), sub: 'Per field, per pool' },
+    { href: '/finance/field-pnl', label: t('finance.field_pnl', locale), sub: 'Killer feature' },
+    { href: '/finance/cash-flow', label: t('finance.cash_flow', locale), sub: '90-day forecast' },
+    { href: '/finance/reconciliation/inputs', label: t('finance.reconciliation', locale), sub: 'Inputs · Diesel · Bank' },
+  ];
   return (
     <div>
-      <Masthead section="FINANCE" />
+      <Masthead section={t('finance.title', locale)} />
       <SectionDivider />
-      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[var(--rule)]">
-        <StatBlock label="Cash on hand" value={<Pkr value={0} mode="lac_crore" />} caption="Soneri" />
-        <StatBlock label="Payables 30d" value={<Pkr value={0} mode="lac_crore" />} />
-        <StatBlock label="Receivables 30d" value={<Pkr value={0} mode="lac_crore" />} />
-        <StatBlock label="Burn 30d" value={<Pkr value={0} mode="lac_crore" />} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-x divide-[var(--rule)]">
+        <StatBlock label={t('dashboard.cash_on_hand', locale)} value={<Pkr value={0} mode="lac_crore" />} caption="Soneri" />
+        <StatBlock label={t('finance.payables_30d', locale)} value={<Pkr value={0} mode="lac_crore" />} />
+        <StatBlock label={t('finance.receivables_30d', locale)} value={<Pkr value={0} mode="lac_crore" />} />
+        <StatBlock label={t('finance.burn_30d', locale)} value={<Pkr value={0} mode="lac_crore" />} />
       </div>
-      <SectionDivider label="Navigate" />
-      <div className="grid gap-3 md:grid-cols-3">
-        {TILES.map((t) => (
-          <Link key={t.href} href={t.href as never} className="block">
+      <SectionDivider label={t('finance.navigate', locale)} />
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {TILES.map((tile) => (
+          <Link key={tile.href} href={tile.href as never} className="block">
             <Card className="hover:bg-[var(--paper-2)]">
-              <CardHeader><CardTitle>{t.label}</CardTitle></CardHeader>
-              <CardContent className="smallcaps text-[0.7rem] text-[var(--ink)]/60">{t.sub}</CardContent>
+              <CardHeader><CardTitle>{tile.label}</CardTitle></CardHeader>
+              <CardContent className="smallcaps text-[0.7rem] text-[var(--ink)]/60">{tile.sub}</CardContent>
             </Card>
           </Link>
         ))}

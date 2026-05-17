@@ -44,3 +44,7 @@ export * from './components/saved-views-dropdown.js';
 export * from './components/task-drawer.js';
 export * from './components/csv-mapper.js';
 export * from './components/json-diff.js';
+export * from './components/locale-switcher.js';
+export * from './components/help-drawer.js';
+export * from './components/global-search.js';
+export * from './lib/help-context.js';

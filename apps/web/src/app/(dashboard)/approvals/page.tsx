@@ -2,11 +2,14 @@ import Link from 'next/link';
 import { db, approvalRequests } from '@zameen/db';
 import { desc, inArray, isNull, and } from 'drizzle-orm';
 import { Masthead, SectionDivider, Card, CardHeader, CardTitle, CardContent, ApprovalBanner, Pkr } from '@zameen/ui';
+import { t } from '@zameen/locale';
 import { fmtDate } from '@/lib/format';
+import { getLocale } from '@/lib/locale';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ApprovalsListPage() {
+  const locale = await getLocale();
   const pending = await db
     .select()
     .from(approvalRequests)
@@ -22,17 +25,17 @@ export default async function ApprovalsListPage() {
 
   return (
     <div>
-      <Masthead section="APPROVALS" />
+      <Masthead section={t('approvals.title', locale)} />
       <SectionDivider />
-      <div className="flex justify-end px-4 py-2">
-        <Link href={'/approvals/board' as never} className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--surface-2)]">
-          Board
+      <div className="flex justify-end px-1 py-2">
+        <Link href={'/approvals/board' as never} className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--surface-2)] min-h-[44px] md:min-h-[40px] inline-flex items-center">
+          {t('crops.board', locale)}
         </Link>
       </div>
       <Card className="mb-6">
-        <CardHeader><CardTitle>Pending · {pending.length}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('approvals.awaiting', locale)} · {pending.length}</CardTitle></CardHeader>
         <CardContent className="p-0">
-          {pending.length === 0 ? <div className="p-6 text-sm text-[var(--ink)]/50">Nothing pending.</div> : (
+          {pending.length === 0 ? <div className="p-6 text-sm text-[var(--ink)]/50">{t('approval.pending', locale)}: 0.</div> : (
             <ul>
               {pending.map((r) => (
                 <li key={r.id} className="border-t border-[var(--rule)] px-4 py-3 first:border-0">
@@ -49,30 +52,32 @@ export default async function ApprovalsListPage() {
           )}
         </CardContent>
       </Card>
-      <SectionDivider label="Recently decided" />
+      <SectionDivider label={t('approvals.recent', locale)} />
       <Card>
         <CardContent className="p-0">
-          {recent.length === 0 ? <div className="p-6 text-sm text-[var(--ink)]/50">No history yet.</div> : (
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--paper-2)] border-b border-[var(--rule)]"><tr>
-                <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">Title</th>
-                <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">Type</th>
-                <th className="smallcaps text-right px-3 py-2 text-[0.7rem]">Amount</th>
-                <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">State</th>
-                <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">Decided</th>
-              </tr></thead>
-              <tbody>
-                {recent.map((r) => (
-                  <tr key={r.id} className="border-t border-[var(--rule)]">
-                    <td className="px-3 py-2">{r.title}</td>
-                    <td className="px-3 py-2 smallcaps text-[0.7rem]">{r.approvalType}</td>
-                    <td className="px-3 py-2 text-right">{r.amountPkr ? <Pkr value={r.amountPkr} /> : '—'}</td>
-                    <td className="px-3 py-2 smallcaps text-[0.7rem]">{r.state}</td>
-                    <td className="px-3 py-2 tabular text-xs">{fmtDate(r.decidedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {recent.length === 0 ? <div className="p-6 text-sm text-[var(--ink)]/50">—</div> : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-[var(--paper-2)] border-b border-[var(--rule)]"><tr>
+                  <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">{t('audit.action', locale)}</th>
+                  <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">{t('approval.threshold', locale)}</th>
+                  <th className="smallcaps text-right px-3 py-2 text-[0.7rem]">{t('common.rs', locale)}</th>
+                  <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">{t('status.submitted', locale)}</th>
+                  <th className="smallcaps text-left px-3 py-2 text-[0.7rem]">{t('approvals.decided', locale)}</th>
+                </tr></thead>
+                <tbody>
+                  {recent.map((r) => (
+                    <tr key={r.id} className="border-t border-[var(--rule)]">
+                      <td className="px-3 py-3 md:py-2">{r.title}</td>
+                      <td className="px-3 py-3 md:py-2 smallcaps text-[0.7rem]">{r.approvalType}</td>
+                      <td className="px-3 py-3 md:py-2 text-right">{r.amountPkr ? <Pkr value={r.amountPkr} /> : '—'}</td>
+                      <td className="px-3 py-3 md:py-2 smallcaps text-[0.7rem]">{r.state}</td>
+                      <td className="px-3 py-3 md:py-2 tabular text-xs">{fmtDate(r.decidedAt, locale)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>

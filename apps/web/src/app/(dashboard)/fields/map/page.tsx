@@ -1,4 +1,4 @@
-import { db, fields, blocks, farms, cropPlans, cropProfiles, soilTests } from '@zameen/db';
+import { db, fields, blocks, farms, cropPlans, cropProfiles, soilTests, ndviObservations } from '@zameen/db';
 import { desc, eq } from 'drizzle-orm';
 import { Masthead, SectionDivider } from '@zameen/ui';
 import { FieldsMapView, type FieldMapField } from '@/modules/fields/components/fields-map-view';
@@ -58,10 +58,30 @@ export default async function FieldsMapPage() {
   const phByField = new Map<string, string | null>();
   for (const r of latestSoil) if (!phByField.has(r.fieldId)) phByField.set(r.fieldId, r.ph);
 
+  const ndviLatest = await db
+    .select({
+      fieldId: ndviObservations.fieldId,
+      meanNdvi: ndviObservations.meanNdvi,
+      previewImageUrl: ndviObservations.previewImageUrl,
+      observedOn: ndviObservations.observedOn,
+    })
+    .from(ndviObservations)
+    .orderBy(desc(ndviObservations.observedOn));
+  const ndviByField = new Map<string, { meanNdvi: number; previewImageUrl: string | null }>();
+  for (const r of ndviLatest) {
+    if (!ndviByField.has(r.fieldId)) {
+      ndviByField.set(r.fieldId, {
+        meanNdvi: Number(r.meanNdvi),
+        previewImageUrl: r.previewImageUrl,
+      });
+    }
+  }
+
   const mapFields: FieldMapField[] = rows
     .filter((r) => r.geometry)
     .map((r) => {
       const plan = planByField.get(r.id);
+      const ndvi = ndviByField.get(r.id);
       return {
         id: r.id,
         code: r.code,
@@ -72,6 +92,8 @@ export default async function FieldsMapPage() {
         cropColor: colorFor(plan?.cropName ?? null),
         stage: plan?.stage ?? null,
         soilPh: phByField.get(r.id) ?? null,
+        ndviMean: ndvi?.meanNdvi ?? null,
+        ndviPreviewUrl: ndvi?.previewImageUrl ?? null,
       };
     });
 

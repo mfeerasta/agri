@@ -416,3 +416,112 @@ Owner: Claude Code subagent, MF.
 
 9. File-size cap is 10 MB hard. Above that we switch to a streaming `ReadableStream` response in chunks of 64 KB. In practice seasonal reports for a 50-field operation come to ~80 KB PDF / ~30 KB XLSX, so this is defensive.
 
+## 2026-05-17, Sentinel-2 NDVI overlay via Sentinel Hub
+
+**Decision.** Wire NDVI overlays onto the field map using Sentinel Hub's Process API (rendered PNG previews) plus Statistical API (numeric mean/min/max/std per acquisition). Storage in `zameen.ndvi_observations`. Daily pull at 01:00 UTC. Free tier is sufficient for one 100-acre farm at the Sentinel-2 5-day revisit cadence.
+
+**Why.**
+
+1. Sentinel-2 over Landsat-8/9. Sentinel-2 has 10 m native resolution and a 5-day revisit; Landsat is 30 m at a 16-day revisit. Many Rupafab fields are 3 to 8 acres, which is 1 to 3 Landsat pixels and 30+ Sentinel pixels. Per-pixel uniformity insight is only useful at the 10 m grid.
+
+2. Statistical API for stored values, Process API only for previews. Statistical API returns mean / min / max / std plus a cloud-cover ratio per polygon per bucket at a fraction of the credit cost of full Process API rasters. We persist the numbers and render the PNG once per acquisition, kept in R2 at roughly 5 KB per field per pass.
+
+3. Cloud-cover threshold of 40%. Below 40% we get usable NDVI; above 40% the Scene Classification mask wipes too many pixels and the mean becomes unrepresentative. Tunable via `CLOUD_COVER_LIMIT` constant in `supabase/functions/ndvi-puller/index.ts`.
+
+4. Cron at 01:00 UTC (06:00 PKT). Sentinel-2 L2A data lands in the Sentinel Hub catalogue with a 6 to 24 hour lag after the satellite pass. 01:00 UTC is comfortably past the daily processing window and well before MF starts the day.
+
+5. Legend gradient red to green, not viridis. NDVI is a domain where the colour mapping is already culturally cemented for farmers: red is stressed, green is healthy. A perceptually uniform viridis ramp would technically be better for scientific accuracy but worse for the actual user.
+
+6. R2 preview storage over Supabase Storage. Already wired R2 for photo evidence (`@zameen/shared/r2`); reusing the same SigV4 signer in the edge function keeps the operational surface narrow. PNGs are ~5 KB each at 512x512, so 100 fields x 5 day revisit x 365 days ~= 36 MB/year. Negligible.
+
+**Alternatives considered.**
+
+- Self-hosted Sentinel-2 via Copernicus Open Access Hub + GDAL. Free at the source but operationally heavy (raster storage, mosaicking, atmospheric correction). Sentinel Hub already does this and the free tier is enough.
+- Planet Labs daily imagery at 3 m resolution. Better cadence and resolution, but commercial pricing per km^2 makes it untenable for a single-farm pilot. Revisit during expansion.
+- Storing previews as data URLs in jsonb. Quick to ship but bloats the table; R2 with a CDN-fronted public base is cleaner.
+
+**Implications.** Sentinel Hub credentials must be present in production env. Free-tier credit usage is ~30 PU per field per pass with the Statistical API, plus ~5 PU per preview render; well within the 30 000 PU/month free allowance. Add `SENTINEL_HUB_CLIENT_ID` and `SENTINEL_HUB_CLIENT_SECRET` to the secrets bundle on deploy. Backfill via `supabase/scripts/backfill-ndvi.sh` for new tenants. The NDVI anomaly banner on the field detail page fires when the latest observation drops >0.2 below the 6-observation rolling mean; tune the threshold in `apps/web/src/app/(dashboard)/fields/[id]/page.tsx` if false positives appear during canopy senescence.
+
+
+---
+
+## 2026-05-17. Inbound WhatsApp NLU and AI feasibility drafts
+
+**Decision.** Inbound WhatsApp messages from workers and supervisors are parsed by Anthropic Claude into a fixed intent set (task_completion, diesel_log, diesel_purchase, repair_report, harvest_log, milk_log, attendance_check_in, attendance_check_out, comment) inside the existing supabase edge function `whatsapp-webhook`. Confidence below 0.5 or explicit ambiguity triggers a bilingual clarification round-trip rather than a guess. The same Claude wrapper drafts feasibility studies from a short prompt, which then becomes a starter the Director edits before submitting for approval.
+
+**Why Claude over GPT-4.** Workers write in Urdu, Roman Urdu, and mixed scripts. Claude's tokenizer compresses non-Latin scripts more efficiently than GPT-4's BPE on Roman-only corpora, lowering both latency and per-message cost. Anecdotally Claude also follows the JSON-only output instruction more reliably without the function-calling overhead. We fall through to `{ intent: 'unknown' }` on every error path so the webhook stays correct when the upstream is down.
+
+**Confidence threshold of 0.5 plus a clarification round-trip.** A worker who writes "F3 ki kahani" should be asked back, not silently dispatched. Setting the threshold any lower invites bad inserts; setting it higher rejects half of valid Roman Urdu. The clarification message names exactly the field that is missing in Urdu first, English second, with a 1-line example.
+
+**processIntent registry pattern.** Mirror of `apps/field/src/server/sync-dispatcher.ts`. One function per intent, all writing through the service-role Supabase client into `zameen.*` rather than importing the Node-only drizzle + approvals packages into the Deno runtime. Threshold checks for diesel purchases are inlined here from `DEFAULT_APPROVAL_THRESHOLDS_PKR`; if they ever drift, both files need to update. A unit test on a future Phase 2 sync would catch this.
+
+**Feasibility AI draft as starter not final.** The draft never auto-submits. It writes into the New Feasibility form, the Director edits any section, then explicitly hits "Save and submit for Director approval". The architectural rule (approval-first, even for the Director) is preserved. We keep `feasibility_study` as a Director-only approval type with thresholds of 0 for everyone else so an AI-drafted document cannot bypass MF.
+
+**Bilingual replies keyed to the worker's preferred locale.** `zameen.users.preferred_locale` is `ur` by default. The reply builder in `replies.ts` emits Urdu first, English second when the locale is `ur` or unset, and English-only when explicitly `en`. Templates are short so they remain inside the WhatsApp 1024-char comprehensible window.
+
+**Attendance via WhatsApp accepted but flagged GPS-null.** WhatsApp text messages do not carry GPS. Rather than reject the intent, we accept the check-in with `check_in_gps = null` and `within_geofence = null`. Trade-off: workers without a smartphone PWA can mark presence remotely, defeating the geofence anti-fraud control. Mitigation: a future Phase 2 supervisor dashboard surfaces "remote attendance" rows for spot-check. The audit trail still shows the source as `whatsapp`. Documented here so we do not lose the trade-off when adding stricter HR rules.
+
+**Signature verification preserved.** Every POST is HMAC-verified before any DB write. Inbound message handling cannot run on a forged payload.
+
+**Implications.**
+
+- `ANTHROPIC_API_KEY` becomes a required secret in production. Without it, `parseMessage` falls back to `unknown` and inbound flow degrades gracefully to clarification replies.
+- `ANTHROPIC_MODEL` is an optional override (defaults to `claude-3-5-sonnet-20241022`). Easy to bump to a newer model when one lands.
+- The webhook now writes to many tables (`task_completions`, `diesel_daily_logs`, `diesel_purchases`, `repair_requests`, `harvest_records`, `milk_records`, `attendance_records`, `entity_comments`, `approval_requests`). RLS policies must allow the service-role client to insert into all of these, which is already the case.
+
+## 2026-05-17. Narrative AI assistants surfaced across the platform
+
+**Decision.** Anthropic Claude (`claude-3-5-sonnet-20241022` by default, override via `ZAMEEN_CLAUDE_MODEL`) is the narrative-AI engine across four touch points: a per-page help drawer, a global voice search, a crop-plan advisor card, and an approval explainer panel. OpenAI Whisper handles speech-to-text; OpenAI `text-embedding-3-small` is reserved for the Phase 2 vector index. The wrapper lives in `packages/shared/src/anthropic.ts` with `complete` and `stream` shapes plus a shared `HOUSE_STYLE` block that bans em-dashes.
+
+**Why Claude for narrative.** Mirrors the existing inbound-WhatsApp NLU decision. Claude's tone in mixed Urdu and English copy reads more naturally than GPT-4o for the kind of soft prose that goes into a "why this matters" or a crop recommendation. Anthropic's prompt caching also lets us hold a stable house-style block at near-zero marginal cost as the surfaces multiply.
+
+**Why OpenAI for embeddings.** `text-embedding-3-small` is cheaper per million tokens than Voyage or Cohere and good enough for short entity-record text. We are not embedding documents in Phase 1; the search endpoint does server-side ilike for now, with the vector index slated for Phase 2 alongside the Mapbox field editor.
+
+**Cache 24 hours per (kind, key) in `zameen.ai_advisor_cache`.** The crop advisor and approval explainer responses change slowly relative to the underlying data, so MF should not see a different summary every refresh. A 24-hour TTL bounds spend, gives stable output for screenshots, and is short enough that a fresh weather record or a context update propagates within a day. The cache is purged by a pg_cron job (`purge-ai-advisor-cache`).
+
+**AI never blocks workflow.** Every AI endpoint times out at 60s and returns a graceful empty payload. The crop advisor card hides itself on zero confidence. The approval explainer renders nothing if Claude is unreachable. MF can always approve, log, or post without AI being available.
+
+**`ai_call_log` for cost and abuse tracking.** Every call writes a row (kind, user_id, entity_id, prompt summary, token counts, latency, model, cached, error). PII is scrubbed before logging via `summarizePrompt`. The table is RLS-protected (service role write, owner read). A nightly pg_cron job trims rows past 180 days.
+
+**Rate limits in-memory at 30 calls per user per hour.** Sufficient for a single-instance Phase 1 deploy. Reuses the existing token-bucket helper at `apps/web/src/lib/rate-limit.ts`. Swap for Upstash when the Approver PWA goes multi-region.
+
+**No on-device LLM yet.** A future Phase 4 might run a small distilled model on the supervisor's phone for offline crop advice, but Phase 1 to 3 keep all inference server-side. This keeps the Field PWA install size lean and battery use predictable.
+
+**Implications.**
+
+- `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are both required for full functionality. Missing keys degrade endpoints to empty responses; users see "AI unavailable" hints rather than errors.
+- A new shared style rule: every AI-returned string passes through prompts that ban em-dashes. The house-style block lives in `@zameen/shared/anthropic.ts`.
+- The advisor card on a crop plan deep-links to the task creation form with prefilled fields. If we ever rename `/crops/tasks/new`, update `ai-advisor-card.tsx`.
+- The help drawer is mounted globally inside the dashboard layout. Each page registers a context string via `useRegisterPageContext('...')`. Pages that do not register fall back to a generic system prompt.
+
+## Dashboard responsiveness and per-user locale (May 2026)
+
+### Breakpoints
+
+- `sm` (640px+) — phones in landscape, very small tablets. Sidebar hidden; top hamburger reveals slide-in menu. Stat grids go 1 → 2 col.
+- `md` (768px+) — iPad mini and Galaxy Tab portrait. Sidebar collapses to a 56px icon-only rail; hover expands to a 240px overlay with labels for 200ms. Stat grids stay 2 col; main content padding `px-6 py-6`.
+- `lg` (1024px+) — full desktop. Sidebar pinned at 240px with labels. Stat grids 4 col. Main content `px-8 py-8`.
+
+### Sidebar collapse strategy
+
+The sidebar is one `<aside>` element. CSS-only width transitions between 56px and 240px on `md`; pinned at 240px on `lg`. Mobile breakpoint hides it and renders a slide-in panel inside a fixed-position overlay with a dimmed backdrop. State lives in `responsive-nav.tsx`; the server layout passes pre-rendered nav items (with localized labels and JSX icons) as props so the heavy nav remains server-rendered.
+
+### Locale resolution chain
+
+`getLocale()` in `apps/web/src/lib/locale.ts` resolves in this order: `users.preferredLocale` (DB) → `zameenLocale` cookie → web default `en`. The field PWA continues to default to `ur` per `DEFAULT_LOCALE`. The web dashboard's default is the new `WEB_DEFAULT_LOCALE = 'en'` export. The locale switcher writes both the cookie (immediate) and the DB row (server action, persistent across devices), plus mirrors to `localStorage.zameenLocale` for client-side hints.
+
+### Eastern Arabic numerals are opt-in
+
+`fmtNumber()` now accepts `locale` and `useEasternNumerals` parameters. Finance staff (MF in particular) types figures in English numerals and reads them faster that way, so the Urdu locale alone does not flip numerals. A future `users.preferences.useEasternNumerals` flag will gate it per user. Dates always follow the locale (because the visual difference is smaller and date readability in Urdu is genuinely better for non-English readers).
+
+### Table overflow strategy
+
+Tables wrap in `overflow-x-auto` with `min-w-full` so all columns are preserved on small screens. We chose horizontal scroll over hiding columns because the value M needs is often the rightmost column (decided amount, decided-at). Truncating loses the audit trail.
+
+### Touch targets
+
+Button `cva` sizes now include `min-h-[44px]` on mobile (`min-h-[40px]` on `md+`). Table rows use `py-3` on mobile and `py-2` on `md+` for the same reason. Buttons fall back to 44px which matches Apple HIG and Android M3 recommendations for tablet glove-tap usability while walking.
+
+### RTL handling
+
+When `locale === 'ur'` the dashboard layout sets `<html dir="rtl">` and reverses the flex order so the sidebar appears on the right. Tables stay LTR for tabular numbers; only the headers' alignment flips via `dir` inheritance.

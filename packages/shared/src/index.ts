@@ -10,3 +10,7 @@ export * from './ocr.js';
 export * from './mentions.js';
 export * from './dependency-graph.js';
 export * from './critical-path.js';
+export * from './sentinel-hub.js';
+export * from './nlu.js';
+export * from './anthropic.js';
+export * from './ai/citations.js';

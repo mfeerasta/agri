@@ -9,7 +9,15 @@ export interface FieldPolygon {
   cropProfileId?: string | null;
   cropColor?: string;
   cropName?: string;
+  /** Optional NDVI preview image URL (PNG). Used when ndviOverlay='latest'. */
+  ndviPreviewUrl?: string | null;
+  /** NDVI footprint bounding box [minLng, minLat, maxLng, maxLat]. */
+  ndviBbox?: [number, number, number, number] | null;
+  /** Latest mean NDVI for the field, 0..1. */
+  ndviMean?: number | null;
 }
+
+export type NdviOverlayMode = 'none' | 'latest' | 'gradient';
 
 export interface LegendEntry {
   label: string;
@@ -29,6 +37,53 @@ export interface FieldMapProps {
   center?: { lat: number; lng: number };
   /** Initial zoom override (only used together with `center`). */
   zoom?: number;
+  /**
+   * NDVI overlay mode.
+   *   - 'none' (default): polygons only
+   *   - 'latest': render each field's latest NDVI preview PNG as a raster image
+   *   - 'gradient': colour polygon fills by the mean NDVI value (no raster)
+   */
+  ndviOverlay?: NdviOverlayMode;
+  /** Show a built-in NDVI toggle pill in the top-right of the map. */
+  showNdviToggle?: boolean;
+}
+
+const NDVI_LEGEND_STOPS: Array<{ value: number; color: string; label: string }> = [
+  { value: 0.0, color: '#a72929', label: '0.0' },
+  { value: 0.2, color: '#d94d33', label: '0.2' },
+  { value: 0.4, color: '#f5bd5c', label: '0.4' },
+  { value: 0.6, color: '#d6e866', label: '0.6' },
+  { value: 0.8, color: '#66bd5c', label: '0.8' },
+  { value: 1.0, color: '#1a7333', label: '1.0' },
+];
+
+function ndviColor(v: number): string {
+  if (v < 0.0) return NDVI_LEGEND_STOPS[0].color;
+  if (v < 0.2) return NDVI_LEGEND_STOPS[1].color;
+  if (v < 0.4) return NDVI_LEGEND_STOPS[2].color;
+  if (v < 0.6) return NDVI_LEGEND_STOPS[3].color;
+  if (v < 0.8) return NDVI_LEGEND_STOPS[4].color;
+  return NDVI_LEGEND_STOPS[5].color;
+}
+
+function polygonBbox(geom: FieldPolygon['geometry']): [number, number, number, number] | null {
+  const rings = (
+    geom.type === 'Polygon'
+      ? (geom.coordinates as number[][][])
+      : ((geom.coordinates as number[][][][]).flat())
+  ) as number[][][];
+  let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+  let saw = false;
+  for (const ring of rings) {
+    for (const [x, y] of ring) {
+      saw = true;
+      if (x < minLng) minLng = x;
+      if (x > maxLng) maxLng = x;
+      if (y < minLat) minLat = y;
+      if (y > maxLat) maxLat = y;
+    }
+  }
+  return saw ? [minLng, minLat, maxLng, maxLat] : null;
 }
 
 /**
@@ -47,10 +102,14 @@ export function FieldMap({
   styleUrl = 'mapbox://styles/mapbox/light-v11',
   center,
   zoom,
+  ndviOverlay = 'none',
+  showNdviToggle = false,
 }: FieldMapProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const mapRef = React.useRef<unknown>(null);
   const [ready, setReady] = React.useState(false);
+  const [overlayMode, setOverlayMode] = React.useState<NdviOverlayMode>(ndviOverlay);
+  React.useEffect(() => setOverlayMode(ndviOverlay), [ndviOverlay]);
   const token = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_MAPBOX_TOKEN as string | undefined) : undefined;
 
   React.useEffect(() => {
@@ -77,8 +136,13 @@ export function FieldMap({
         zoom: zoom ?? 13.5,
       }) as {
         on: (ev: string, cb: (e?: unknown) => void) => void;
-        addLayer: (l: unknown) => void;
+        addLayer: (l: unknown, beforeId?: string) => void;
         addSource: (id: string, s: unknown) => void;
+        removeLayer: (id: string) => void;
+        removeSource: (id: string) => void;
+        getLayer: (id: string) => unknown;
+        getSource: (id: string) => unknown;
+        setPaintProperty: (layer: string, key: string, val: unknown) => void;
         remove: () => void;
         fitBounds: (b: unknown, opts?: unknown) => void;
       };
@@ -102,6 +166,38 @@ export function FieldMap({
           source: 'fields',
           paint: { 'fill-color': ['get', 'cropColor'], 'fill-opacity': 0.45 },
         });
+
+        // NDVI raster image layers per field. Added in a hidden state; the
+        // overlay-mode effect toggles their visibility via opacity.
+        for (const f of fields) {
+          if (!f.ndviPreviewUrl) continue;
+          const bb = f.ndviBbox ?? polygonBbox(f.geometry);
+          if (!bb) continue;
+          const [minLng, minLat, maxLng, maxLat] = bb;
+          const srcId = `ndvi-src-${f.id}`;
+          const lyrId = `ndvi-lyr-${f.id}`;
+          try {
+            map.addSource(srcId, {
+              type: 'image',
+              url: f.ndviPreviewUrl,
+              coordinates: [
+                [minLng, maxLat],
+                [maxLng, maxLat],
+                [maxLng, minLat],
+                [minLng, minLat],
+              ],
+            });
+            map.addLayer({
+              id: lyrId,
+              type: 'raster',
+              source: srcId,
+              paint: { 'raster-opacity': 0, 'raster-fade-duration': 0 },
+            }, 'fields-fill');
+          } catch (err) {
+            // mapbox throws if we double-add. Safe to ignore on hot reloads.
+            console.warn('ndvi layer add failed', err);
+          }
+        }
         map.addLayer({
           id: 'fields-outline',
           type: 'line',
@@ -156,6 +252,39 @@ export function FieldMap({
     };
   }, [token, fields, onSelect, styleUrl, center, zoom]);
 
+  // Drive overlay mode -> paint properties on already-loaded layers.
+  React.useEffect(() => {
+    if (!ready) return;
+    const m = mapRef.current as
+      | {
+          getLayer: (id: string) => unknown;
+          setPaintProperty: (layer: string, key: string, val: unknown) => void;
+        }
+      | null;
+    if (!m) return;
+    for (const f of fields) {
+      const lyrId = `ndvi-lyr-${f.id}`;
+      if (m.getLayer(lyrId)) {
+        m.setPaintProperty(lyrId, 'raster-opacity', overlayMode === 'latest' ? 0.85 : 0);
+      }
+    }
+    if (m.getLayer('fields-fill')) {
+      if (overlayMode === 'gradient') {
+        const gradientExpr: unknown[] = ['case'];
+        for (const f of fields) {
+          gradientExpr.push(['==', ['get', 'code'], f.code]);
+          gradientExpr.push(typeof f.ndviMean === 'number' ? ndviColor(f.ndviMean) : (f.cropColor ?? '#2D6A4F'));
+        }
+        gradientExpr.push('#4B5563');
+        m.setPaintProperty('fields-fill', 'fill-color', gradientExpr);
+        m.setPaintProperty('fields-fill', 'fill-opacity', 0.65);
+      } else {
+        m.setPaintProperty('fields-fill', 'fill-color', ['get', 'cropColor']);
+        m.setPaintProperty('fields-fill', 'fill-opacity', overlayMode === 'latest' ? 0.15 : 0.45);
+      }
+    }
+  }, [ready, overlayMode, fields]);
+
   if (!token) {
     return (
       <div
@@ -175,6 +304,42 @@ export function FieldMap({
       {!ready ? (
         <div className="absolute inset-0 flex items-center justify-center smallcaps text-xs text-[var(--ink)]/60">
           Loading map
+        </div>
+      ) : null}
+      {showNdviToggle ? (
+        <div className="absolute right-2 top-2 flex gap-1 rounded-md border border-[var(--rule)] bg-[var(--paper)]/90 p-1 backdrop-blur">
+          {(['none', 'latest', 'gradient'] as NdviOverlayMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setOverlayMode(m)}
+              className={cn(
+                'px-2 py-1 smallcaps text-[0.6rem] rounded',
+                overlayMode === m
+                  ? 'bg-[var(--ink)] text-[var(--paper)]'
+                  : 'text-[var(--ink)] hover:bg-[var(--rule)]',
+              )}
+            >
+              {m === 'none' ? 'Plain' : m === 'latest' ? 'NDVI' : 'Health'}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {overlayMode !== 'none' ? (
+        <div className="pointer-events-none absolute left-2 bottom-2 rounded-md border border-[var(--rule)] bg-[var(--paper)]/90 px-3 py-2 backdrop-blur">
+          <div className="smallcaps mb-1 text-[0.6rem] text-[var(--ink)]/60">NDVI</div>
+          <div
+            className="h-2 w-32 rounded-sm"
+            style={{
+              background:
+                'linear-gradient(to right, #a72929 0%, #d94d33 20%, #f5bd5c 40%, #d6e866 60%, #66bd5c 80%, #1a7333 100%)',
+            }}
+          />
+          <div className="mt-1 flex justify-between font-mono text-[0.55rem] text-[var(--ink)]/70">
+            {NDVI_LEGEND_STOPS.map((s) => (
+              <span key={s.label}>{s.label}</span>
+            ))}
+          </div>
         </div>
       ) : null}
       {selectedId ? (

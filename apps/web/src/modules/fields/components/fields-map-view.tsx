@@ -13,6 +13,8 @@ export interface FieldMapField {
   cropColor: string;
   stage: string | null;
   soilPh: string | null;
+  ndviMean?: number | null;
+  ndviPreviewUrl?: string | null;
 }
 
 interface Props {
@@ -41,7 +43,11 @@ export function FieldsMapView({ fields }: Props) {
     geometry: f.geometry,
     cropColor: f.cropColor,
     cropName: f.cropName ?? undefined,
+    ndviMean: f.ndviMean ?? null,
+    ndviPreviewUrl: f.ndviPreviewUrl ?? null,
   }));
+
+  const anyNdvi = fields.some((f) => f.ndviPreviewUrl || typeof f.ndviMean === 'number');
 
   return (
     <div className="grid gap-4 md:grid-cols-[1fr_320px]">
@@ -53,6 +59,8 @@ export function FieldsMapView({ fields }: Props) {
           height={640}
           legend={legend}
           styleUrl="mapbox://styles/mapbox/satellite-streets-v12"
+          showNdviToggle={anyNdvi}
+          ndviOverlay={anyNdvi ? 'latest' : 'none'}
         />
       </div>
 
@@ -81,6 +89,12 @@ export function FieldsMapView({ fields }: Props) {
               <div className="flex justify-between border-t border-[var(--border)] pt-2">
                 <dt className="text-[var(--fg-muted)]">Last soil pH</dt>
                 <dd className="tabular text-[var(--fg)]">{selected.soilPh ?? 'n/a'}</dd>
+              </div>
+              <div className="flex justify-between border-t border-[var(--border)] pt-2">
+                <dt className="text-[var(--fg-muted)]">Latest NDVI</dt>
+                <dd className="tabular text-[var(--fg)]">
+                  {typeof selected.ndviMean === 'number' ? selected.ndviMean.toFixed(3) : 'n/a'}
+                </dd>
               </div>
             </dl>
 

@@ -10,6 +10,8 @@ import {
   ChartCard,
   FieldMap,
 } from '@zameen/ui';
+import { t } from '@zameen/locale';
+import { getLocale } from '@/lib/locale';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +50,7 @@ function colorFor(cropName: string | null): string {
 }
 
 export default async function DashboardHome() {
+  const locale = await getLocale();
   const rows = await db
     .select({
       id: fields.id,
@@ -80,45 +83,47 @@ export default async function DashboardHome() {
     .leftJoin(cropProfiles, eq(cropProfiles.id, cropPlans.cropProfileId));
   const planByField = new Map(plans.map((p) => [p.fieldId, p]));
 
+  const localeTag = locale === 'ur' ? 'ur-PK' : 'en-GB';
+
   return (
     <div>
-      <Masthead section="Overview" />
+      <Masthead section={t('dashboard.overview', locale)} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatBlock label="Pending approvals" value="3" caption="2 with Farm Manager · 1 with MF" delta={{ value: -1, label: 'vs yesterday' }} />
-        <StatBlock label="Workers present" value={<><span>18</span><span className="text-2xl text-[var(--fg-muted)] ml-1">/22</span></>} caption="Geofence-verified" />
-        <StatBlock label="Diesel stock" value={<><span>3,420</span><span className="text-xl text-[var(--fg-muted)] ml-1">L</span></>} caption="Main Tank" delta={{ value: 2.1 }} />
-        <StatBlock label="Cash on hand" value={<Pkr value={2_840_500} mode="lac_crore" />} caption="Soneri current" delta={{ value: -8.4 }} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatBlock label={t('dashboard.pending_approvals', locale)} value="3" caption="2 with Farm Manager · 1 with MF" delta={{ value: -1, label: 'vs yesterday' }} />
+        <StatBlock label={t('dashboard.workers_present', locale)} value={<><span>18</span><span className="text-2xl text-[var(--fg-muted)] ml-1">/22</span></>} caption="Geofence-verified" />
+        <StatBlock label={t('dashboard.diesel_stock', locale)} value={<><span>3,420</span><span className="text-xl text-[var(--fg-muted)] ml-1">L</span></>} caption={t('diesel.tank', locale)} delta={{ value: 2.1 }} />
+        <StatBlock label={t('dashboard.cash_on_hand', locale)} value={<Pkr value={2_840_500} mode="lac_crore" />} caption="Soneri" delta={{ value: -8.4 }} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         <StatBlock
-          label="Anomalies"
+          label={t('dashboard.open_anomalies', locale)}
           value={
             <span style={{ color: criticalAnomalies > 0 ? 'var(--danger)' : undefined }}>
               {openAnomalies}
             </span>
           }
-          caption={criticalAnomalies > 0 ? `${criticalAnomalies} critical` : 'open diesel anomalies'}
+          caption={criticalAnomalies > 0 ? `${criticalAnomalies} ${t('dashboard.critical', locale)}` : t('dashboard.open_anomalies', locale)}
         />
       </div>
 
-      <SectionDivider label="Today" />
+      <SectionDivider label={t('dashboard.today', locale)} />
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         <Card>
           <CardContent className="p-0">
             <ul>
-              {TODAY_TASKS.map((t, idx) => (
+              {TODAY_TASKS.map((task, idx) => (
                 <li
-                  key={t.code}
+                  key={task.code}
                   className={`flex items-baseline justify-between px-5 py-3 ${idx > 0 ? 'border-t border-[var(--border)]' : ''}`}
                 >
                   <span className="flex items-baseline gap-3">
-                    <span className="smallcaps text-[var(--accent)]">{t.code}</span>
-                    <span className="text-[var(--fg)]">{t.title}</span>
+                    <span className="smallcaps text-[var(--accent)]">{task.code}</span>
+                    <span className="text-[var(--fg)]">{task.title}</span>
                   </span>
-                  <span className="tabular text-[0.78rem] text-[var(--fg-muted)]">{t.crew}</span>
+                  <span className="tabular text-[0.78rem] text-[var(--fg-muted)]">{task.crew}</span>
                 </li>
               ))}
             </ul>
@@ -126,17 +131,17 @@ export default async function DashboardHome() {
         </Card>
 
         <ChartCard
-          title="Diesel consumption — last 30 days"
+          title={`${t('nav.diesel', locale)} — last 30 days`}
           data={DIESEL_30D}
           xKey="day"
           yKey="litres"
-          unit="litres per week"
+          unit={t('common.litre', locale)}
         />
       </div>
 
-      <SectionDivider label="Field activity" />
+      <SectionDivider label={t('dashboard.field_activity', locale)} />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {rows.map((r) => {
           const plan = planByField.get(r.id);
           const cropName = plan?.cropName ?? null;
@@ -144,7 +149,7 @@ export default async function DashboardHome() {
           return (
             <Card key={r.id}>
               <CardContent className="space-y-3">
-                <div className="smallcaps">{r.code} {cropName ?? 'Fallow'}</div>
+                <div className="smallcaps">{r.code} {cropName ?? t('dashboard.fallow', locale)}</div>
                 <div className="aspect-[4/3] overflow-hidden rounded-[10px] border border-[var(--border)]">
                   {r.geometry ? (
                     <FieldMap
@@ -162,7 +167,7 @@ export default async function DashboardHome() {
                   )}
                 </div>
                 <div className="tabular text-xs text-[var(--fg-muted)]">
-                  {Number(r.acres).toFixed(2)} acre · {plan?.stage ?? 'fallow'}
+                  {Number(r.acres).toFixed(2)} {t('common.acre', locale)} · {plan?.stage ?? t('dashboard.fallow', locale)}
                 </div>
               </CardContent>
             </Card>
@@ -171,8 +176,8 @@ export default async function DashboardHome() {
       </div>
 
       <div className="mt-12 pt-6 border-t border-[var(--border)] flex items-center justify-between text-xs text-[var(--fg-subtle)]">
-        <span>Generated by Zameen</span>
-        <span className="tabular">{new Date().toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+        <span>{t('dashboard.generated_by', locale)}</span>
+        <span className="tabular">{new Date().toLocaleString(localeTag, { hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     </div>
   );

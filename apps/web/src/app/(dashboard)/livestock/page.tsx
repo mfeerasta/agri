@@ -2,8 +2,11 @@ import Link from 'next/link';
 import { Masthead, SectionDivider, StatBlock, ChartCard, Card, CardContent, CardHeader, CardTitle } from '@zameen/ui';
 import { db, animals, milkRecords, healthEvents } from '@zameen/db';
 import { sql, gte, and, eq } from 'drizzle-orm';
+import { t } from '@zameen/locale';
+import { getLocale } from '@/lib/locale';
 
 export default async function LivestockHome() {
+  const locale = await getLocale();
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
 
@@ -38,19 +41,19 @@ export default async function LivestockHome() {
 
   return (
     <div className="space-y-6">
-      <Masthead section="Livestock" />
-      <div className="flex justify-end gap-2">
-        <Link href={'/livestock/animals/new' as never} className="rounded-md bg-emerald-700 px-4 py-2 text-white">Register animal</Link>
-        <Link href={'/livestock/feed/new' as never} className="rounded-md bg-emerald-600 px-4 py-2 text-white">Log feed</Link>
+      <Masthead section={t('livestock.title', locale)} />
+      <div className="flex flex-wrap justify-end gap-2">
+        <Link href={'/livestock/animals/new' as never} className="rounded-md bg-emerald-700 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('action.new', locale)}</Link>
+        <Link href={'/livestock/feed/new' as never} className="rounded-md bg-emerald-600 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('livestock.log_feed', locale)}</Link>
       </div>
       <SectionDivider />
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatBlock label="Cattle" value={counts.cattle ?? 0} />
         <StatBlock label="Buffalo" value={counts.buffalo ?? 0} />
         <StatBlock label="Goat" value={counts.goat ?? 0} />
-        <StatBlock label="Lactating (30d)" value={Number(lactating[0]?.count ?? 0)} />
+        <StatBlock label={`${t('livestock.log_milk', locale)} (30d)`} value={Number(lactating[0]?.count ?? 0)} />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         <Card>
           <CardHeader><CardTitle className="text-sm">Milk today (L)</CardTitle></CardHeader>
           <CardContent className="text-3xl font-semibold">{Number(milkToday[0]?.total ?? 0).toFixed(2)}</CardContent>

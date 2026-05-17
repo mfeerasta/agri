@@ -172,6 +172,46 @@ export async function sendApprovalDecisionTemplate(
   });
 }
 
+export interface SendTextMessageInput {
+  to: string;
+  body: string;
+}
+
+/**
+ * Send a freeform text message (non-template). Only valid inside the
+ * 24-hour customer-service window after the recipient has messaged us.
+ * Used by the inbound NLU webhook to reply to workers who just sent
+ * structured updates in natural language.
+ *
+ * WhatsApp body is capped at 4096 chars but we truncate at 1024 for
+ * worker comprehension and to stay within usual rendering.
+ */
+export async function sendTextMessage(
+  input: SendTextMessageInput,
+): Promise<WhatsAppSendResult> {
+  const body = input.body.length > 1024 ? input.body.slice(0, 1021) + '...' : input.body;
+  const res = await fetch(endpoint(), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: input.to,
+      type: 'text',
+      text: { body, preview_url: false },
+    }),
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    messages?: Array<{ id: string }>;
+  };
+  if (!res.ok) {
+    throw new WhatsAppError(res.status, json, `WhatsApp text send failed: ${res.status}`);
+  }
+  return { messageId: json.messages?.[0]?.id ?? '', status: 'sent' };
+}
+
 export interface OtpTemplateInput {
   to: string;
   code: string;
