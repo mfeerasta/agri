@@ -29,3 +29,7 @@ export * from './training.js';
 export * from './platform-events.js';
 export * from './digests.js';
 export * from './calendar-tokens.js';
+export * from './worker-scoring.js';
+export * from './weather-alerts.js';
+export * from './insurance.js';
+export * from './crop-loans.js';

@@ -2,6 +2,29 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { applySecurityHeaders } from './lib/security-headers';
 
+const PUBLIC_PATHS = new Set<string>([
+  '/',
+  '/features',
+  '/about',
+  '/contact',
+  '/privacy',
+  '/terms',
+  '/api/docs',
+  '/openapi.json',
+  '/robots.txt',
+  '/sitemap.xml',
+]);
+
+const PUBLIC_PREFIXES = ['/login', '/api/marketing/'];
+
+function isPublic(pathname: string): boolean {
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  for (const prefix of PUBLIC_PREFIXES) {
+    if (pathname.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
@@ -20,8 +43,9 @@ export async function middleware(request: NextRequest) {
     },
   );
   const { data } = await supabase.auth.getUser();
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
-  if (!data.user && !isAuthRoute) {
+  const path = request.nextUrl.pathname;
+
+  if (!data.user && !isPublic(path)) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     const redirect = NextResponse.redirect(url);
@@ -29,11 +53,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Fire-and-forget page-view tracking. Never block the response.
-  const path = request.nextUrl.pathname;
   if (
     data.user &&
     !path.startsWith('/api/') &&
-    !path.startsWith('/admin/analytics') &&
+    !path.startsWith('/app/admin/analytics') &&
     !path.startsWith('/_next')
   ) {
     const meta = (data.user.app_metadata ?? {}) as Record<string, unknown>;

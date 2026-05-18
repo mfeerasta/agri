@@ -901,3 +901,259 @@ intentionally fuzzy: prefix wildcards on every token, OR semantics within the
 query, broad date/amount/vendor filters. Trade-off: cross-module queries are
 slower than per-table queries (50ms vs 10ms typical), but the lookup pattern
 is once-a-month not once-a-minute.
+
+## Spray planner and weather-alert auto-tasks (2026-05)
+
+### Scoring function intentionally simple
+The spray-window recommender is a sum of weighted penalties: wind, rain,
+temperature, humidity, and PHI-vs-harvest. No ML, no remote model call. Two
+reasons. First, the user audience is a worker who needs to understand why a
+window won and an alternative did not — every penalty writes into rationale or
+warnings so the UI can show the reasoning verbatim. Second, the inputs come
+from a free weather API with known noise floor, so an ML model would be
+optimizing past sensor jitter. If a window ranks badly we can blame a
+specific rule, not a black box.
+
+### Five-window cap
+planSprayWindows returns the top 5 across the 7-day horizon. Showing all 14
+slots (morning and evening for each day) created decision fatigue in the
+field test: workers picked the first one that looked acceptable rather than
+weighing alternatives. Five is enough for "today morning vs tomorrow morning
+vs day-after evening" without scrolling.
+
+### Pre-baked rule templates over a freeform DSL
+The weather-rules admin page exposes five hand-written templates (frost,
+heatwave, heavy rain, strong wind, drought) rather than a generic
+condition-action builder. Same reasoning as the spray planner: farmer-side
+adoption needs a one-click install path. Customization is allowed but
+restricted to threshold numbers, not condition restructuring. Power-users
+can write rules directly in the DB.
+
+### weather-alert-checker scheduled after weather-puller
+weather-puller runs every 3 hours; we lock the alert evaluation cron at 04:30
+UTC, half an hour after the 04:00 puller tick. Running the two as a single
+job would tie alert latency to weather-fetch failures: we want the checker
+to use the freshest available data but to not block on it.
+
+### Pakistan-specific pesticide registry
+packages/shared/src/lib/punjab-pesticides.json hand-curates roughly 30
+products with their PHI in days. A generic Western registry would skew
+toward chemistries that are not legal or not common here (e.g. neonicotinoid
+restrictions, organochlorine bans), and would miss locally heavy users like
+Profenofos and Diafenthiuron. PHI values come from EPA, Codex, and PAB
+labels; we keep it static rather than pulling a live database to avoid a
+hard dependency for an obscure data source.
+
+## Worker leaderboard and bonus scheme
+
+### Composite score with explicit, auditable weights
+The score is the sum of seven independent contributions: attendance (30),
+tasks completed (25), piece-rate volume (25), piece-rate earnings (15),
+minus task lateness (2 each), attendance lateness (1 each), and diesel
+anomalies tied to the operator (5 each). Each contribution is computed and
+stored separately so the manager UI can render a stacked-bar breakdown
+without re-deriving the math, and so a Director can defend any payout to a
+worker on appeal. Weights are constants in code today; later they move into
+zameen.score_weight_overrides per entity when the policy evolves. No
+machine learning, no opaque ranking.
+
+### Worker sees only own score, not the full leaderboard
+The field PWA exposes /me/score with the worker's composite, rank in
+"N of M" form, and three sub-cards. It does not expose the full ordered
+list. Rationale: in tight-knit Punjabi field teams, public ranking creates
+interpersonal friction that outweighs the motivational benefit. The manager
+dashboard at /labor/leaderboard shows the full ordered list because
+supervisors need it to evaluate fairness and intervene.
+
+### Bonus rules use a restricted JSONB DSL, not arbitrary code
+bonus_rules.formula accepts a fixed set of filters
+(minDaysPresent, maxDaysLate, maxTasksLate, maxDieselAnomalies,
+minTasksCompleted, minPieceRateUnits) plus amount_kind in
+(flat, percent_of_base, percent_of_piece_rate, top_n). This keeps rules
+auditable, prevents accidental injection of expensive predicates, and lets
+the Approver PWA render the rule in plain language. If a future bonus
+structure needs more, we add a named filter, not an expression evaluator.
+
+### Monthly cadence matches payroll
+worker-score-monthly runs on the 2nd of the month at 03:00 PKT, scoring the
+previous calendar month. The 2nd-not-1st gap allows late attendance edits
+on the last day of the month to land before scoring. Bonus amounts are
+stamped on the score row (bonus_amount_pkr) and rolled into the next
+payroll run, where they go through the existing approval engine. We
+deliberately do not auto-pay; payroll approval keeps a Director in the
+loop on every bonus rupee.
+
+### Diesel anomaly penalty only when operator_id is set
+The penalty subtracts 5 per anomaly, but only when the daily log carries
+operator_id matching the worker. If the operator is unrecorded (older logs,
+shared tractor with no logbook discipline), the anomaly counts as
+infrastructure noise, not against any individual. This avoids collective
+punishment when a tractor misbehaves and the team can't be sure who was
+driving.
+
+### Gold/silver/bronze rendering uses brand accent variants, not gold
+Top-3 cards use color-mix(in srgb, var(--accent) N%, var(--paper)) at
+18%, 12%, and 7% to communicate ordering without introducing a foreign
+gold or trophy palette. The brand is Pretext-monochrome with one accent;
+adding a metallic-yellow tier would clash. The Trophy lucide icon in the
+field PWA profile link is the one symbolic cue.
+
+## 2026-05-18: Public marketing site, API docs, MF brief
+
+### Public marketing at root, dashboard moved to /app/*
+
+Visitors to agri.feerasta.ai used to hit the login wall directly. We now
+serve a public marketing site at the root and the authenticated dashboard
+moved to /app/* via a route segment inside the existing (dashboard) group.
+The (marketing) route group renders for unauthenticated visitors and
+redirects to /app when a Supabase session is present. Middleware was
+updated with an explicit PUBLIC_PATHS allowlist (/, /features, /about,
+/contact, /privacy, /terms, /api/docs, /openapi.json, /robots.txt,
+/sitemap.xml) plus PUBLIC_PREFIXES for /login and /api/marketing/. The
+trade-off: 19 directories were moved into (dashboard)/app/ but the nav
+hrefs were the only call sites that needed updating, so the rename
+blast-radius stayed small. Chose this over a /about subdomain because it
+keeps SEO consolidated and matches how every modern SaaS marketing site
+behaves.
+
+### Swagger UI loaded from CDN, not bundled
+
+The API docs page at /api/docs renders swagger-ui-dist 5.17 from jsDelivr
+via a small client component that injects the script and stylesheet on
+mount. Reasoning: swagger-ui-dist is roughly 1 MB minified and would
+inflate the marketing bundle for a page that 5 people will ever load.
+CDN-served keeps the marketing JS budget under 100 KB and means we never
+ship the Swagger runtime to people who don't need it. The OpenAPI 3.1 spec
+itself is hand-curated at apps/web/public/openapi.json; the
+scripts/generate-openapi.ts script only validates and pretty-prints
+because there is no widely-adopted Zod-to-OpenAPI bridge for Next route
+handlers and we want the spec to mean exactly what we say it means.
+
+### demo_requests is public-insert, admin-read
+
+Lead capture from the contact page lands in zameen.demo_requests via the
+service role from a Next route handler. The table has RLS enabled with a
+single SELECT policy for director and super_admin roles. There is no
+public INSERT policy because the route handler is the only path in and it
+already does Zod validation, rate-limiting (10/hr/IP via the existing
+rateLimit helper), and IP and user-agent capture. Notifying MF is
+fire-and-forget via Resend; a Resend failure must not fail the lead save.
+
+### MF brief and v1.0 release notes shipped as PDF
+
+docs/mf-brief.md and docs/release-notes-v1.0.md are the source of truth;
+apps/web/scripts/build-mf-brief.ts renders both to PDF using the existing
+@react-pdf/renderer dependency. PDF is the right format because the brief
+goes to family, lenders, and partners over WhatsApp where Markdown is not
+a viable artifact. The template uses the existing deep-green and ochre
+brand palette and includes a fixed footer with agri.feerasta.ai on every
+page.
+
+### GDPR-lite privacy policy
+
+Pakistani law does not mandate a GDPR-style data-rights regime today. We
+opted in anyway: export, deletion, correction, and access-log rights are
+written into /privacy. No third-party trackers on the public site. No
+analytics SDK. Plausible-style first-party page-view tracking happens only
+behind auth, in middleware, and is already documented in the analytics
+ADR.
+
+### No third-party analytics on the public marketing site
+
+The marketing pages are static React Server Components with no client JS
+beyond the demo-request form. No Google Analytics, no Plausible, no
+Vercel Analytics. The trade-off is we lose visibility into who is reading
+/about, but the upside is the page passes audit-grade privacy hygiene and
+loads under 100 KB JS. We can add a first-party page-view counter later
+without dragging a third-party script in.
+
+## 2026-05-18, Insurance and crop loans as first-class records
+
+**Decision.** Insurance policies, claims, crop loans, and loan transactions live in their own
+tables (zameen.insurance_policies, zameen.insurance_claims, zameen.crop_loans,
+zameen.crop_loan_transactions) instead of being modeled purely as journal entries with metadata.
+
+**Why.** MF needs a paper trail that an auditor or insurer adjuster can walk independent of
+the GL. Insurers ask for documents organized by policy + claim, not by ledger period. Kissan
+Card and Punjab agri-bank programs require quoting the loan number, lender name, and collateral
+on every status touchpoint; embedding those in journal narration would be lossy. Journal entries
+still post for every loan transaction and every paid claim, and reference the originating record
+via source_module + source_record_id so audit can walk both sides.
+
+**Alternatives considered.** Pure GL with rich metadata fields (too brittle for adjuster review,
+search by claim number is awkward). Generic "documents" attached to journal lines (loses the
+state machine for claims and the txn ledger per loan).
+
+**Implications.** Two more state machines to maintain (claim status, loan status). Cross-table
+joins for the loans dashboard. RLS routed via parent (claims via policy entity, loan txns via
+loan entity). One new approval_type "insurance" and one new threshold tier.
+
+## 2026-05-18, Claim photos are mandatory at submission
+
+**Decision.** zameen.insurance_claims.photo_urls is jsonb default '[]' at the DB level, but the
+server action createClaim rejects empty arrays. Reuses the PhotoUploader compression flow
+(200 KB target, 1600px long edge).
+
+**Why.** Every adjuster MF has worked with treats undocumented claims as fraud risk and either
+discounts the settlement or stalls assessment. Capturing geo-tagged photos at incident time is
+cheap insurance against later disputes. The cost of an uploaded photo (a few KB after
+compression) is rounding error against the claim values being filed.
+
+**Alternatives considered.** Warning-only on UI (would be skipped under time pressure, defeats
+the audit purpose). Photos optional but required to move to assessor_done (loses the contemporaneous
+evidence that makes adjusters trust the file).
+
+**Implications.** Field-stationed workers must have the PWA camera path working offline; the
+existing IndexedDB queue covers this.
+
+## 2026-05-18, FIFO is surfaced, not enforced
+
+**Decision.** The storage heat-map renders FIFO rank per storage location ("1·LOT123" = oldest
+in that location) and the "Move oldest first" card calls out the top three lots aged ≥30 days
+holding rank 1. We do not block dispatches that skip ahead in the FIFO order.
+
+**Why.** Warehouse reality is dirtier than software wants it to be. Tractors break down, customer
+trucks show up with the wrong crate count, a buyer specifically asks for a grade-A lot from a
+particular field. Making the produce_movements server action reject out-of-order dispatch would
+just push workers to back-date entries or skip recording moves entirely. Surfacing the FIFO
+position lets supervisors self-correct without bureaucratic friction.
+
+**Alternatives considered.** Hard FIFO enforcement (rejected for the reasons above). FIFO as a
+post-hoc report (loses the at-a-glance signal that makes the heat-map valuable).
+
+**Implications.** The shrinkage estimate (0.02% per day in storage) is heuristic; it will diverge
+from actual measured shrinkage on the lot. We accept this because the goal is to draw the eye
+to old inventory, not to compute the true write-down.
+
+## 2026-05-18, Age bucket boundaries match agronomic shelf-life conventions
+
+**Decision.** Buckets are 0-30d (fresh), 31-60d (acceptable), 61-90d (watch), 90-180d (sell-now),
+180d+ (loss risk). Colors run green > lime > yellow > orange > red.
+
+**Why.** Most field crops in this rotation (wheat, mustard, fodder) hit moisture-driven quality
+inflection points around the 60-90 day mark in unconditioned storage. Maize stored over 180d
+without phosphine fumigation is essentially written down. The breakpoints match what the
+warehouse foreman would intuit; using e.g. weekly buckets would be precise but illegible.
+
+**Alternatives considered.** Crop-specific shelf-life curves (defensible but data-hungry and
+hard to display in one grid; revisit when there is enough harvested-to-sold telemetry to fit
+real curves per crop).
+
+**Implications.** A single shrinkage heuristic applies across crops, which understates risk for
+maize and overstates for wheat. Acceptable for v1.
+
+## 2026-05-18, Kissan Card as a named lender_kind
+
+**Decision.** The lender_kind check constraint enumerates 'kissan_card' as a distinct lender
+kind alongside 'agri_bank' and 'commercial_bank'.
+
+**Why.** Punjab's Kissan Card pilot has unique disbursement, repayment, and reporting
+expectations (per-acre limit, season-tied repayment, subsidy reimbursement to the lender). Folding
+it into 'agri_bank' would force downstream reporting to special-case it via free-text. Naming it
+explicitly lets us produce a Kissan Card register on demand without text-matching lender names.
+
+**Alternatives considered.** Generic lender_kind with a separate program_name field (more flexible
+but loses the type discipline; reporting code would always have to defensively coerce).
+
+**Implications.** If the federal Kisan e-Credit (Sindh) program comes online and behaves
+differently, we will add it as another named kind rather than overloading 'kissan_card'.

@@ -26,7 +26,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
     setBusy(false);
     if (error) setError(error.message);
-    else window.location.href = '/';
+    else window.location.href = '/app';
   }
 
   return (

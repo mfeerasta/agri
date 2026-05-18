@@ -464,6 +464,8 @@ export const taskCompletions = makeTable('taskCompletions');
 export const pieceRateLogs = makeTable('pieceRateLogs');
 export const payrollRuns = makeTable('payrollRuns');
 export const payslips = makeTable('payslips');
+export const workerScorePeriods = makeTable('workerScorePeriods');
+export const bonusRules = makeTable('bonusRules');
 
 export const accounts = makeTable('accounts');
 export const journalEntries = makeTable('journalEntries');
@@ -509,6 +511,8 @@ export const entityActivity = makeTable('entityActivity');
 export const entityLabels = makeTable('entityLabels');
 export const savedViews = makeTable('savedViews');
 export const pushSubscriptions = makeTable('pushSubscriptions');
+export const weatherAlertRules = makeTable('weatherAlertRules');
+export const weatherAlerts = makeTable('weatherAlerts');
 
 // ---------- test helpers ----------
 

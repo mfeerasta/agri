@@ -13,6 +13,7 @@ export const APPROVAL_TYPES = [
   'land_transaction',
   'tax_payment',
   'loan',
+  'insurance',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -34,6 +35,7 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   land_transaction: { supervisor: 0, farm_manager: 0, director: 0 },
   tax_payment: { supervisor: 0, farm_manager: 0, director: null },
   loan: { supervisor: 0, farm_manager: 0, director: 0 },
+  insurance: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
 };
 
 export const USER_ROLES = [

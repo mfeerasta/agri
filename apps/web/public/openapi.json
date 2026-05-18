@@ -1,0 +1,343 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Zameen API",
+    "version": "1.0.0",
+    "description": "Operational API for the Zameen platform (Rupafab Agri). Most endpoints require an authenticated Supabase session unless marked public. Money values are in PKR (paisa as integer or decimal as documented).",
+    "contact": { "name": "M (Meer Feerasta)", "email": "meerfeerasta@gmail.com" }
+  },
+  "servers": [
+    { "url": "https://agri.feerasta.ai", "description": "Production" },
+    { "url": "http://localhost:3000", "description": "Local dev" }
+  ],
+  "tags": [
+    { "name": "Sync", "description": "Field PWA offline sync" },
+    { "name": "Uploads", "description": "Direct-to-R2 uploads" },
+    { "name": "OCR", "description": "Receipt OCR" },
+    { "name": "Transcribe", "description": "Voice transcription" },
+    { "name": "AI", "description": "AI advisor, chat, search" },
+    { "name": "Exports", "description": "Report exports" },
+    { "name": "Notifications", "description": "Push and email notifications" },
+    { "name": "WebAuthn", "description": "Passkey enrolment and login" },
+    { "name": "Feasibility", "description": "Feasibility study drafts" },
+    { "name": "Diagnostics", "description": "System health and diagnostics" },
+    { "name": "Marketing", "description": "Public marketing endpoints" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "supabaseSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sb-access-token",
+        "description": "Supabase SSR session cookie. Set on successful sign-in."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "details": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["error"]
+      },
+      "Ok": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "id": { "type": "string", "nullable": true }
+        }
+      },
+      "SyncBatch": {
+        "type": "object",
+        "properties": {
+          "deviceId": { "type": "string" },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "examples": ["diesel.purchase", "labor.attendance", "field.note"] },
+                "clientId": { "type": "string" },
+                "payload": { "type": "object", "additionalProperties": true },
+                "occurredAt": { "type": "string", "format": "date-time" }
+              },
+              "required": ["kind", "clientId", "payload", "occurredAt"]
+            }
+          }
+        },
+        "required": ["deviceId", "operations"]
+      },
+      "PresignRequest": {
+        "type": "object",
+        "properties": {
+          "fileName": { "type": "string" },
+          "contentType": { "type": "string" },
+          "size": { "type": "integer" },
+          "bucket": { "type": "string", "enum": ["receipts", "repair", "field", "compliance"] }
+        },
+        "required": ["fileName", "contentType", "bucket"]
+      },
+      "PresignResponse": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "key": { "type": "string" },
+          "headers": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "TranscribeRequest": {
+        "type": "object",
+        "properties": {
+          "audioBase64": { "type": "string" },
+          "language": { "type": "string", "enum": ["ur", "en", "pa"], "default": "ur" }
+        },
+        "required": ["audioBase64"]
+      },
+      "TranscribeResponse": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "language": { "type": "string" },
+          "durationMs": { "type": "integer" }
+        }
+      },
+      "OcrDieselResponse": {
+        "type": "object",
+        "properties": {
+          "vendor": { "type": "string", "nullable": true },
+          "date": { "type": "string", "format": "date", "nullable": true },
+          "litres": { "type": "number", "nullable": true },
+          "rate": { "type": "number", "nullable": true },
+          "totalPkr": { "type": "number", "nullable": true },
+          "confidence": { "type": "number" }
+        }
+      },
+      "AiChatRequest": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+                "content": { "type": "string" }
+              },
+              "required": ["role", "content"]
+            }
+          },
+          "context": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["messages"]
+      },
+      "AiChatResponse": {
+        "type": "object",
+        "properties": {
+          "reply": { "type": "string" },
+          "model": { "type": "string" },
+          "cached": { "type": "boolean" }
+        }
+      },
+      "DemoRequestInput": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 120 },
+          "email": { "type": "string", "format": "email" },
+          "organization": { "type": "string", "nullable": true },
+          "phone": { "type": "string", "nullable": true },
+          "message": { "type": "string", "nullable": true }
+        },
+        "required": ["name", "email"]
+      }
+    }
+  },
+  "security": [{ "supabaseSession": [] }],
+  "paths": {
+    "/api/sync": {
+      "post": {
+        "tags": ["Sync"],
+        "summary": "Apply offline batch from the Field PWA",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncBatch" } } }
+        },
+        "responses": {
+          "200": { "description": "Batch applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } } },
+          "401": { "description": "Unauthenticated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/uploads/r2-presign": {
+      "post": {
+        "tags": ["Uploads"],
+        "summary": "Get a presigned URL for direct-to-R2 upload",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresignRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Presigned URL", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PresignResponse" } } } },
+          "401": { "description": "Unauthenticated" }
+        }
+      }
+    },
+    "/api/transcribe": {
+      "post": {
+        "tags": ["Transcribe"],
+        "summary": "Transcribe voice audio (Urdu, English, Punjabi)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TranscribeRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Transcript", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TranscribeResponse" } } } }
+        }
+      }
+    },
+    "/api/ocr/diesel": {
+      "post": {
+        "tags": ["OCR"],
+        "summary": "Extract structured fields from a diesel receipt photo",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "imageUrl": { "type": "string", "format": "uri" } }, "required": ["imageUrl"] } } }
+        },
+        "responses": {
+          "200": { "description": "Parsed receipt", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrDieselResponse" } } } }
+        }
+      }
+    },
+    "/api/ocr/repair": {
+      "post": {
+        "tags": ["OCR"],
+        "summary": "Extract line items and totals from a repair invoice photo",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "imageUrl": { "type": "string", "format": "uri" } }, "required": ["imageUrl"] } } }
+        },
+        "responses": { "200": { "description": "Parsed invoice" } }
+      }
+    },
+    "/api/exports/seasonal-report": {
+      "get": {
+        "tags": ["Exports"],
+        "summary": "Download the seasonal P&L report",
+        "parameters": [
+          { "in": "query", "name": "season", "schema": { "type": "string" }, "example": "rabi-2025-26" },
+          { "in": "query", "name": "format", "schema": { "type": "string", "enum": ["xlsx", "csv", "pdf"], "default": "xlsx" } }
+        ],
+        "responses": {
+          "200": { "description": "Binary report payload" },
+          "401": { "description": "Unauthenticated" }
+        }
+      }
+    },
+    "/api/diagnostics": {
+      "get": {
+        "tags": ["Diagnostics"],
+        "summary": "System health snapshot (db, storage, cron, queue)",
+        "responses": {
+          "200": {
+            "description": "Health snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "db": { "type": "object" },
+                    "storage": { "type": "object" },
+                    "cron": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/chat": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Open chat with the Zameen advisor",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiChatRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Advisor reply", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiChatResponse" } } } },
+          "429": { "description": "Rate limit exceeded" }
+        }
+      }
+    },
+    "/api/ai/search": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "Semantic search across documents, fields, and audit logs",
+        "parameters": [{ "in": "query", "name": "q", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Ranked results" } }
+      }
+    },
+    "/api/ai/crop-advisor/{cropPlanId}": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "Per-crop-plan advisor (stage-aware)",
+        "parameters": [{ "in": "path", "name": "cropPlanId", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "Advisor output" } }
+      }
+    },
+    "/api/notifications/send": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Send an in-app or email notification",
+        "responses": { "200": { "description": "Sent" } }
+      }
+    },
+    "/api/notifications/prefs": {
+      "get": { "tags": ["Notifications"], "summary": "Read current user notification preferences", "responses": { "200": { "description": "Prefs object" } } },
+      "put": { "tags": ["Notifications"], "summary": "Update current user notification preferences", "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/push/subscribe": {
+      "post": { "tags": ["Notifications"], "summary": "Register a Web Push subscription", "responses": { "200": { "description": "Registered" } } }
+    },
+    "/api/push/unsubscribe": {
+      "post": { "tags": ["Notifications"], "summary": "Remove a Web Push subscription", "responses": { "200": { "description": "Removed" } } }
+    },
+    "/api/webauthn/register/options": {
+      "post": { "tags": ["WebAuthn"], "summary": "Get options for passkey registration", "responses": { "200": { "description": "Registration options" } } }
+    },
+    "/api/webauthn/register/verify": {
+      "post": { "tags": ["WebAuthn"], "summary": "Verify passkey registration response", "responses": { "200": { "description": "Verified" } } }
+    },
+    "/api/webauthn/login/options": {
+      "post": { "tags": ["WebAuthn"], "summary": "Get options for passkey login", "responses": { "200": { "description": "Login options" } } }
+    },
+    "/api/webauthn/login/verify": {
+      "post": { "tags": ["WebAuthn"], "summary": "Verify passkey assertion and start session", "responses": { "200": { "description": "Session started" } } }
+    },
+    "/api/feasibility/draft": {
+      "post": {
+        "tags": ["Feasibility"],
+        "summary": "Persist a feasibility-study draft",
+        "responses": { "200": { "description": "Saved" } }
+      }
+    },
+    "/api/marketing/demo-request": {
+      "post": {
+        "tags": ["Marketing"],
+        "summary": "Submit a demo request (public, rate-limited 10/hr/IP)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DemoRequestInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Saved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } } },
+          "400": { "description": "Invalid input" },
+          "429": { "description": "Too many requests" }
+        }
+      }
+    }
+  }
+}

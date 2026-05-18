@@ -15,6 +15,8 @@ export const WIDGET_KINDS = [
   'yoy_kpi',
   'field_trend_sparkline',
   'cost_pool_trend',
+  'weather_alerts_recent',
+  'produce_aging',
 ] as const;
 export type WidgetKind = (typeof WIDGET_KINDS)[number];
 

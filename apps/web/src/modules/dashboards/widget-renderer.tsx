@@ -83,6 +83,41 @@ export function WidgetRenderer({ widget }: { widget: WidgetConfig }) {
         />
       );
     }
+    case 'weather_alerts_recent': {
+      const alerts = (widget.config.alerts as Array<{ triggeredOn: string; ruleName: string; observation: unknown }>) ?? [];
+      return (
+        <Card>
+          <CardContent className="p-4">
+            <div className="smallcaps text-[0.65rem]">{widget.title}</div>
+            {alerts.length === 0 ? (
+              <div className="mt-2 text-sm text-[var(--fg-muted)]">No alerts in last 7 days.</div>
+            ) : (
+              <ul className="mt-2 grid gap-1 text-sm">
+                {alerts.slice(0, 7).map((a, i) => (
+                  <li key={i} className="flex items-baseline justify-between gap-2">
+                    <span className="font-mono text-xs">{a.triggeredOn}</span>
+                    <span className="flex-1">{a.ruleName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+    case 'produce_aging': {
+      const buckets = (widget.config.buckets as Array<{ bucket: string; weightKg: number; lotCount: number }>) ?? [];
+      return (
+        <ChartCard
+          title={widget.title}
+          data={buckets.map((b) => ({ x: b.bucket, y: b.weightKg }))}
+          xKey="x"
+          yKey="y"
+          unit="kg"
+          height={140}
+        />
+      );
+    }
     case 'recent_activity':
     case 'approval_queue_preview':
     case 'field_map_mini':
