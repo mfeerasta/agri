@@ -14,7 +14,13 @@
 import { NextResponse } from 'next/server';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { presignPut } from '@zameen/shared/r2';
+import { safeStringify, toUserMessage, errorStatus } from '@zameen/shared';
 import { getFieldSession } from '../../../../lib/session';
+import {
+  validateFileUpload,
+  PHOTO_MIMES,
+  PHOTO_MAX_BYTES,
+} from '../../../../lib/file-validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,29 +61,41 @@ export async function POST(req: Request): Promise<Response> {
   const contentType = req.headers.get('content-type') ?? '';
 
   if (contentType.includes('multipart/form-data')) {
-    const form = await req.formData();
-    const file = form.get('file');
-    const prefixRaw = (form.get('prefix') as string | null) ?? 'field';
-    if (!(file instanceof Blob)) {
-      return NextResponse.json({ error: 'file part missing' }, { status: 400 });
+    try {
+      const form = await req.formData();
+      const file = form.get('file');
+      const prefixRaw = (form.get('prefix') as string | null) ?? 'field';
+      if (!(file instanceof Blob)) {
+        return NextResponse.json({ error: 'file part missing' }, { status: 400 });
+      }
+      const verdict = await validateFileUpload(file, {
+        allowedMimes: PHOTO_MIMES,
+        maxBytes: PHOTO_MAX_BYTES,
+      });
+      if (!verdict.ok) {
+        return NextResponse.json({ error: verdict.error ?? 'invalid file' }, { status: 400 });
+      }
+      const filename = (file as File).name ?? 'upload.bin';
+      const key = buildKey(prefixRaw, session.userId, filename);
+      const bucket = process.env.CLOUDFLARE_R2_BUCKET;
+      if (!bucket) {
+        return NextResponse.json({ error: 'R2 bucket not configured' }, { status: 500 });
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      await r2Client().send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: bytes,
+          ContentType: verdict.detectedMime ?? 'application/octet-stream',
+        }),
+      );
+      const url = publicUrlFor(key);
+      return NextResponse.json({ url, key, publicUrl: url });
+    } catch (e) {
+      console.error(safeStringify({ scope: 'uploads/r2-presign/multipart', err: String(e) }));
+      return NextResponse.json({ error: toUserMessage(e) }, { status: errorStatus(e) });
     }
-    const filename = (file as File).name ?? 'upload.bin';
-    const key = buildKey(prefixRaw, session.userId, filename);
-    const bucket = process.env.CLOUDFLARE_R2_BUCKET;
-    if (!bucket) {
-      return NextResponse.json({ error: 'R2 bucket not configured' }, { status: 500 });
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    await r2Client().send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: bytes,
-        ContentType: file.type || 'application/octet-stream',
-      }),
-    );
-    const url = publicUrlFor(key);
-    return NextResponse.json({ url, key, publicUrl: url });
   }
 
   if (contentType.includes('application/json')) {

@@ -1,0 +1,95 @@
+name: bundle-analysis
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: analyze web
+        run: pnpm --filter @zameen/web analyze
+        env:
+          ANALYZE: 'true'
+      - name: analyze field
+        run: pnpm --filter @zameen/field analyze
+        env:
+          ANALYZE: 'true'
+      - name: upload analyzer reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analyzer-${{ github.sha }}
+          path: |
+            apps/web/.next/analyze/**
+            apps/field/.next/analyze/**
+          if-no-files-found: warn
+      - name: bundle size budget
+        run: |
+          bash deploy/check-bundle-size.sh web
+          bash deploy/check-bundle-size.sh field
+
+  size-delta-comment:
+    if: github.event_name == 'pull_request'
+    needs: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: download current analyzer reports
+        uses: actions/download-artifact@v4
+        with:
+          name: bundle-analyzer-${{ github.sha }}
+          path: ./current-bundle
+      - name: download main baseline
+        id: baseline
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: bundle-analysis.yml
+          branch: main
+          name_is_regexp: true
+          name: bundle-analyzer-.*
+          path: ./baseline-bundle
+      - name: compute delta
+        id: delta
+        run: |
+          set +e
+          fmt() { printf "%s KB" "$(($1/1024))"; }
+          web_now=$(find apps/web/.next/static/chunks -name '*.js' -exec stat -c %s {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          field_now=$(find apps/field/.next/static/chunks -name '*.js' -exec stat -c %s {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          {
+            echo "## Bundle size"
+            echo ""
+            echo "| App | Total JS |"
+            echo "| --- | --- |"
+            echo "| web | $(fmt $web_now) |"
+            echo "| field | $(fmt $field_now) |"
+          } > /tmp/comment.md
+      - uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ env.PR_NUMBER }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Bundle size'
+      - uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ env.PR_NUMBER }}
+          body-path: /tmp/comment.md
+          edit-mode: replace

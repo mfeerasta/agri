@@ -67,7 +67,12 @@ const APP_OPTIONS: Record<AppName, CspOptions> = {
 
 export function applySecurityHeaders(response: NextResponse, app: AppName): NextResponse {
   const csp = buildCsp(APP_OPTIONS[app]);
-  response.headers.set('Content-Security-Policy', csp);
+  // Phase 1: report-only mode. Once the violation log shows no legit traffic
+  // for one week, flip the header name to `Content-Security-Policy`.
+  response.headers.set(
+    'Content-Security-Policy-Report-Only',
+    `${csp}; report-uri /api/csp-report`,
+  );
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');

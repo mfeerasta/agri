@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import bundleAnalyzer from '@next/bundle-analyzer';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const withPWA = require('next-pwa')({
   dest: 'public',
@@ -45,6 +46,8 @@ const withPWA = require('next-pwa')({
   ],
 });
 
+const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === 'true' });
+
 const config: NextConfig = {
   reactStrictMode: true,
   output: 'standalone',
@@ -56,6 +59,15 @@ const config: NextConfig = {
     '@zameen/approvals',
     '@zameen/finance',
   ],
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
+      { protocol: 'https', hostname: '*.r2.dev' },
+    ],
+    deviceSizes: [320, 480, 640, 768, 1024],
+    imageSizes: [16, 32, 64, 96, 128, 200],
+  },
   headers: async () => [
     {
       source: '/(.*)',
@@ -65,4 +77,4 @@ const config: NextConfig = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default withPWA(config as any);
+export default withBundleAnalyzer(withPWA(config as any));

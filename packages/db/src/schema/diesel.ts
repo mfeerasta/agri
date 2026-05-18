@@ -1,4 +1,4 @@
-import { decimal, jsonb, text, timestamp, uuid, varchar, date } from 'drizzle-orm/pg-core';
+import { boolean, decimal, jsonb, text, timestamp, uuid, varchar, date } from 'drizzle-orm/pg-core';
 import { zameen } from './_schema.js';
 import { entities } from './core.js';
 import { assets } from './assets.js';
@@ -32,6 +32,7 @@ export const dieselPurchases = zameen.table('diesel_purchases', {
   approvalRequestId: uuid('approval_request_id'),
   notes: text('notes'),
   createdBy: uuid('created_by'),
+  isDemo: boolean('is_demo').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -57,6 +58,7 @@ export const dieselDailyLogs = zameen.table('diesel_daily_logs', {
   breakdownHours: decimal('breakdown_hours', { precision: 6, scale: 2 }),
   anomalyFlag: text('anomaly_flag'),
   createdBy: uuid('created_by'),
+  isDemo: boolean('is_demo').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

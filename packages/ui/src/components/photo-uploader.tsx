@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import Image from 'next/image';
 import { Camera, X } from 'lucide-react';
 import { BigButton } from './big-button.js';
 import { cn } from '../lib/cn.js';
@@ -64,7 +65,13 @@ export function PhotoUploader({ value, onChange, uploadFn, max = 5, required, la
       <div className="grid grid-cols-3 gap-2">
         {value.map((url, idx) => (
           <div key={url} className="relative aspect-square">
-            <img src={url} alt={`photo ${idx + 1}`} className="h-full w-full rounded-md object-cover" />
+            <Image
+              src={url}
+              alt={`photo ${idx + 1}`}
+              fill
+              sizes="(max-width: 640px) 33vw, 200px"
+              className="rounded-md object-cover"
+            />
             <button
               type="button"
               onClick={() => onChange(value.filter((u) => u !== url))}

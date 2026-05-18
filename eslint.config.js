@@ -7,8 +7,15 @@ import js from '@eslint/js';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tailwind from 'eslint-plugin-tailwindcss';
+import noRawConsoleLog from './tools/eslint-rules/no-raw-console-log.cjs';
 
 const EM_DASH = '—';
+
+const zameenPlugin = {
+  rules: {
+    'no-raw-console-log': noRawConsoleLog,
+  },
+};
 
 export default tseslint.config(
   {
@@ -35,7 +42,11 @@ export default tseslint.config(
         sourceType: 'module',
       },
     },
+    plugins: {
+      zameen: zameenPlugin,
+    },
     rules: {
+      'zameen/no-raw-console-log': 'warn',
       'no-restricted-syntax': [
         'error',
         {

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { eq, desc } from 'drizzle-orm';
 import { db, repairRequests, repairQuotes, repairWorkOrders, partsReplaced, approvalRequests, approvalActions } from '@zameen/db';
@@ -37,7 +38,9 @@ export default async function RepairDetail({ params }: { params: Promise<{ id: s
           {req.problemPhotoUrls.length > 0 ? (
             <div className="grid grid-cols-4 gap-2 mt-3">
               {req.problemPhotoUrls.map((u, i) => (
-                <img key={u} src={u} alt={`problem ${i + 1}`} className="aspect-square object-cover border border-[var(--rule)]" />
+                <div key={u} className="relative aspect-square border border-[var(--rule)]">
+                  <Image src={u} alt={`problem ${i + 1}`} fill sizes="(max-width: 640px) 50vw, 240px" className="object-cover" />
+                </div>
               ))}
             </div>
           ) : null}

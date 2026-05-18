@@ -1,0 +1,26 @@
+name: dependency-audit
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install --frozen-lockfile=false
+      - id: audit
+        run: pnpm audit --audit-level=high --json > audit.json || true
+      - uses: peter-evans/create-issue-from-file@v5
+        if: hashFiles('audit.json') != ''
+        with:
+          title: 'Weekly dependency audit findings'
+          content-filepath: audit.json
+          labels: security, dependencies

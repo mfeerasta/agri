@@ -222,3 +222,20 @@ the database parameter store via `alter database postgres set app.<key> = ...`.
 The seed (`pnpm --filter @zameen/db seed`) must run AFTER
 `0006_geometry_columns.sql` because field and block geometry inserts go through
 the `zameen.geom_from_json(text)` PostGIS helper created by that migration.
+
+## Pre-commit secret scan hook
+
+Install once per clone:
+
+```bash
+bash deploy/install-hooks.sh
+```
+
+This drops `deploy/pre-commit-hook.sh` into `.git/hooks/pre-commit`. The hook
+runs `deploy/scan-secrets.sh` against the working tree and blocks the commit
+if any high-entropy patterns match (Anthropic keys, JWTs, AWS keys, GCP keys,
+Slack tokens, PEM private keys, Stripe webhook secrets). It also blocks
+em-dashes in staged source files (project convention).
+
+The same scanner runs on every push and PR via `.github/workflows/secret-scan.yml`,
+so an unhooked clone still gets caught at the CI gate.

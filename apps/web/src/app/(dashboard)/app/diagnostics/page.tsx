@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db, cropDiagnostics, fields, cropPlans, cropProfiles } from '@zameen/db';
 import {
@@ -141,7 +142,7 @@ export default async function DiagnosticsListPage({
                     <td className="p-3">
                       <Link href={`/diagnostics/${r.id}` as never}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={r.photoUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                        <Image src={r.photoUrl} alt="" width={40} height={40} className="h-10 w-10 rounded object-cover" />
                       </Link>
                     </td>
                     <td className="p-3 tabular">{fmtDate(r.observedOn)}</td>

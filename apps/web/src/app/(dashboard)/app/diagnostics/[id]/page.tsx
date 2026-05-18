@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { db, cropDiagnostics, fields, cropPlans, cropProfiles } from '@zameen/db';
@@ -79,7 +80,9 @@ export default async function DiagnosticDetailPage({ params }: { params: Promise
       <Card>
         <CardContent className="p-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={row.photoUrl} alt="" className="max-h-[480px] w-full object-contain bg-slate-50" />
+          <div className="relative w-full h-[480px] bg-slate-50">
+            <Image src={row.photoUrl} alt="" fill sizes="(max-width: 1024px) 100vw, 800px" className="object-contain" />
+          </div>
         </CardContent>
       </Card>
 

@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import Image from 'next/image';
 import { Camera, X } from 'lucide-react';
 import { cn } from '../lib/cn.js';
 
@@ -78,10 +79,12 @@ export function PhotoCapture({
             key={url}
             className="relative aspect-square border border-[var(--rule)] bg-[var(--paper-2)]"
           >
-            <img
+            <Image
               src={url}
               alt={`photo ${idx + 1}`}
-              className="h-full w-full object-cover"
+              fill
+              sizes="(max-width: 640px) 33vw, 200px"
+              className="object-cover"
             />
             <button
               type="button"

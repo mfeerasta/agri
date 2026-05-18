@@ -21,7 +21,10 @@ export function applyApproveSecurityHeaders(response: NextResponse): NextRespons
     "manifest-src 'self'",
   ].join('; ');
 
-  response.headers.set('Content-Security-Policy', csp);
+  response.headers.set(
+    'Content-Security-Policy-Report-Only',
+    `${csp}; report-uri /api/csp-report`,
+  );
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');

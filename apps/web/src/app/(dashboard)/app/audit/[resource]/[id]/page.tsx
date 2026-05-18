@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import {
@@ -335,7 +336,9 @@ export default async function AuditWalkPage({
                 {[...photoUrls, ...sourcePhotos].map((url) => (
                   // eslint-disable-next-line @next/next/no-img-element
                   <a key={url} href={url} target="_blank" rel="noopener noreferrer">
-                    <img src={url} alt="evidence" className="w-full h-32 object-cover rounded border border-[var(--border)]" />
+                    <div className="relative w-full h-32 rounded border border-[var(--border)] overflow-hidden">
+                      <Image src={url} alt="evidence" fill sizes="(max-width: 768px) 50vw, 240px" className="object-cover" />
+                    </div>
                   </a>
                 ))}
               </div>

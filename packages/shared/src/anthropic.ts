@@ -5,6 +5,11 @@
  *   - complete: single-shot, returns full text + usage
  *   - stream:  async generator yielding deltas (SSE-friendly)
  *
+ * Prompt caching: pass `cacheSystem: true` (or `cacheKey`) to tag the system
+ * block with `cache_control: { type: 'ephemeral' }`. Pass `cachedReferences`
+ * to attach large static blocks (disease libraries, vocab) that also get
+ * cached. Cache hits cost roughly 10% of normal input tokens.
+ *
  * Defaults:
  *   model:       env ZAMEEN_CLAUDE_MODEL or claude-3-5-sonnet-20241022
  *   timeout:     60s
@@ -12,8 +17,8 @@
  *   maxTokens:   1024
  *
  * On missing key or upstream failure, complete() returns a degraded result
- * with empty text + usage zero so callers can fall back gracefully. stream()
- * yields { delta: '', done: true } in the same case.
+ * with empty text and zero usage so callers can fall back gracefully.
+ * stream() yields { delta: '', done: true } in the same case.
  *
  * No em-dashes in returned text: every system prompt should remind Claude.
  */
@@ -22,6 +27,15 @@ const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const TIMEOUT_MS = 60_000;
 const ANTHROPIC_VERSION = '2023-06-01';
+
+// Pricing for Claude Sonnet 4 family, in USD per million tokens.
+// Cached input is ~10% of base. Cache write is ~125% of base.
+// Source: anthropic.com/pricing. Update if a new tier ships.
+const PRICE_INPUT_USD_PER_M = 3;
+const PRICE_OUTPUT_USD_PER_M = 15;
+const PRICE_CACHED_INPUT_USD_PER_M = 0.3;
+const PRICE_CACHE_WRITE_USD_PER_M = 3.75;
+const USD_TO_PKR = 280;
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -33,14 +47,29 @@ export interface CompleteArgs {
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  /** Marks the system block as cacheable (90% discount on hit). */
   cacheKey?: string;
+  /** Same effect as cacheKey but more readable at call sites. */
+  cacheSystem?: boolean;
+  /**
+   * Extra static text blocks (disease libs, vocab, etc.) appended after the
+   * system block. Each block is sent as its own content part with
+   * cache_control so the gateway caches it independently.
+   */
+  cachedReferences?: string[];
   model?: string;
 }
 
 export interface CompleteResult {
   text: string;
   stopReason: string;
-  usage: { input: number; output: number };
+  usage: {
+    input: number;
+    output: number;
+    cached: number;
+    cacheCreation: number;
+  };
+  costEstimatePkr: number;
 }
 
 export interface StreamChunk {
@@ -56,44 +85,84 @@ function getApiKey(): string | null {
   return process.env.ANTHROPIC_API_KEY ?? null;
 }
 
+interface SystemBlock {
+  type: 'text';
+  text: string;
+  cache_control?: { type: 'ephemeral' };
+}
+
 interface AnthropicCompleteBody {
   model: string;
   max_tokens: number;
   temperature: number;
-  system: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }>;
+  system: SystemBlock[];
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   stream?: boolean;
 }
 
-function buildBody(args: CompleteArgs, stream: boolean): AnthropicCompleteBody {
-  const systemBlock: AnthropicCompleteBody['system'][number] = {
-    type: 'text',
-    text: args.system,
-  };
-  if (args.cacheKey) {
-    systemBlock.cache_control = { type: 'ephemeral' };
+function buildSystem(args: CompleteArgs): SystemBlock[] {
+  const cacheSystem = Boolean(args.cacheSystem || args.cacheKey);
+  const blocks: SystemBlock[] = [{ type: 'text', text: args.system }];
+  if (cacheSystem) {
+    blocks[0].cache_control = { type: 'ephemeral' };
   }
+  for (const ref of args.cachedReferences ?? []) {
+    blocks.push({ type: 'text', text: ref, cache_control: { type: 'ephemeral' } });
+  }
+  return blocks;
+}
+
+function buildBody(args: CompleteArgs, stream: boolean): AnthropicCompleteBody {
   return {
     model: getModel(args.model),
     max_tokens: args.maxTokens ?? 1024,
     temperature: args.temperature ?? 0.4,
-    system: [systemBlock],
+    system: buildSystem(args),
     messages: args.messages.map((m) => ({ role: m.role, content: m.content })),
     stream,
   };
 }
 
+/**
+ * Estimate PKR cost from a usage breakdown. Fresh input is billed at the
+ * standard rate, cache hits at 10%, cache creation at 125%, output at
+ * standard. Safe to call client-side because it's pure math.
+ */
+export function estimateCostPkr(usage: {
+  input: number;
+  output: number;
+  cached: number;
+  cacheCreation: number;
+}): number {
+  const usd =
+    (usage.input * PRICE_INPUT_USD_PER_M +
+      usage.output * PRICE_OUTPUT_USD_PER_M +
+      usage.cached * PRICE_CACHED_INPUT_USD_PER_M +
+      usage.cacheCreation * PRICE_CACHE_WRITE_USD_PER_M) /
+    1_000_000;
+  return Number((usd * USD_TO_PKR).toFixed(4));
+}
+
 interface AnthropicCompleteResponse {
   content?: Array<{ type: string; text?: string }>;
   stop_reason?: string;
-  usage?: { input_tokens?: number; output_tokens?: number };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
   error?: { message?: string };
+}
+
+function emptyUsage(): CompleteResult['usage'] {
+  return { input: 0, output: 0, cached: 0, cacheCreation: 0 };
 }
 
 export async function complete(args: CompleteArgs): Promise<CompleteResult> {
   const key = getApiKey();
   if (!key) {
-    return { text: '', stopReason: 'no_api_key', usage: { input: 0, output: 0 } };
+    return { text: '', stopReason: 'no_api_key', usage: emptyUsage(), costEstimatePkr: 0 };
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -109,21 +178,25 @@ export async function complete(args: CompleteArgs): Promise<CompleteResult> {
       signal: controller.signal,
     });
     if (!res.ok) {
-      return { text: '', stopReason: `http_${res.status}`, usage: { input: 0, output: 0 } };
+      return { text: '', stopReason: `http_${res.status}`, usage: emptyUsage(), costEstimatePkr: 0 };
     }
     const json = (await res.json()) as AnthropicCompleteResponse;
     const textBlock = (json.content ?? []).find((b) => b.type === 'text');
     const text = textBlock?.text ?? '';
+    const usage: CompleteResult['usage'] = {
+      input: json.usage?.input_tokens ?? 0,
+      output: json.usage?.output_tokens ?? 0,
+      cached: json.usage?.cache_read_input_tokens ?? 0,
+      cacheCreation: json.usage?.cache_creation_input_tokens ?? 0,
+    };
     return {
       text,
       stopReason: json.stop_reason ?? 'end_turn',
-      usage: {
-        input: json.usage?.input_tokens ?? 0,
-        output: json.usage?.output_tokens ?? 0,
-      },
+      usage,
+      costEstimatePkr: estimateCostPkr(usage),
     };
   } catch {
-    return { text: '', stopReason: 'timeout_or_error', usage: { input: 0, output: 0 } };
+    return { text: '', stopReason: 'timeout_or_error', usage: emptyUsage(), costEstimatePkr: 0 };
   } finally {
     clearTimeout(timer);
   }

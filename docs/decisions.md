@@ -1216,3 +1216,37 @@ gets a separate eight-step in-context tour (`worker-field-pwa-tour.ts`) distinct
 `/training` sandbox: the tour runs against the real UI on first login, the sandbox is a safe
 place to practice. Reissue cycle: handbook and quick-reference reprinted at each season change,
 videos reshot only when a flow materially changes.
+
+## 2026-05-18 Security hardening for pilot launch
+
+Real PKR financial flows go live with the Rupafab pilot. Defensive measures
+added now rather than after-the-fact:
+
+- **Secret scanner** runs in pre-commit + CI. Defense in depth: a missed
+  scan locally still catches at the PR gate. Allow-list scoped to
+  `.env.example`, `docs/`, and `*.md` so placeholder examples don't trip it.
+- **Log redaction by key heuristic** (`packages/shared/src/redact.ts`).
+  Rejecting "log nothing" because incident triage needs structured context;
+  rejecting "log everything raw" because Loki retains 30 days. Compromise:
+  case-insensitive key match against a 15-name allow-deny list plus a
+  token-shape heuristic on long alnum strings. False positives are fine
+  (we'd rather drop a base64 image preview than a service-role JWT).
+- **Property-based RLS fuzz over 28 tables** (`16-rls-isolation-fuzz.spec.ts`).
+  Tests-as-policy: every new `entity_id` table adds a row here and the
+  next CI run proves no leak. Cheaper than handwritten per-table tests
+  and catches the case where a developer forgets to write any test.
+- **Magic-number MIME validation** (`apps/*/src/lib/file-validation.ts`).
+  Never trust `Content-Type` from the client. Wired into receipts and R2
+  presign multipart paths; signed-URL JSON path stays untrusted because
+  Cloudflare R2 will reject non-image bodies via bucket policy.
+- **PublicError pattern** (`packages/shared/src/errors.ts`). Routes throw
+  `PublicError(msg, code)` when the message is user-safe; any other throw
+  becomes "Something went wrong" with the real error logged via
+  `safeStringify`. Stops Postgres unique-constraint messages from leaking
+  table/column names to the browser.
+- **CSP report-only first, then enforce**. Enforcing CSP on a complex
+  multi-app site with Mapbox, Sentinel Hub, Supabase realtime, and inline
+  styles risks breaking real flows for a vague headline of "more secure".
+  One week of report-only traffic into `zameen.csp_violations` (admin-RLS
+  read, anon insert) gives us the data to tighten directives without
+  blocking the pilot.

@@ -53,3 +53,4 @@ export * from './lib/help-context.js';
 export * from './components/enable-push.js';
 export * from './lib/a11y.js';
 export * from './components/product-tour.js';
+export * from './components/welcome-modal.js';

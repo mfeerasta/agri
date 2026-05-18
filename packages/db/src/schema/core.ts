@@ -13,6 +13,7 @@ export const entities = zameen.table('entities', {
   registeredAddress: text('registered_address'),
   approvalThresholds: jsonb('approval_thresholds').notNull().default({}),
   settings: jsonb('settings').notNull().default({}),
+  isDemo: boolean('is_demo').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

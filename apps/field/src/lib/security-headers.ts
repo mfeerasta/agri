@@ -22,7 +22,11 @@ export function applyFieldSecurityHeaders(response: NextResponse): NextResponse 
     "manifest-src 'self'",
   ].join('; ');
 
-  response.headers.set('Content-Security-Policy', csp);
+  // Report-only first; flip to enforced after a week of clean reports.
+  response.headers.set(
+    'Content-Security-Policy-Report-Only',
+    `${csp}; report-uri /api/csp-report`,
+  );
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');
