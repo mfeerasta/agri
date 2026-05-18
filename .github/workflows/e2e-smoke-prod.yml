@@ -1,0 +1,43 @@
+name: e2e-smoke-prod
+
+# Smoke spec only. Runs after each deploy-prod success and on a 15-minute
+# heartbeat. No untrusted event payloads consumed in run: commands.
+
+on:
+  workflow_run:
+    workflows: ['deploy-prod']
+    types: [completed]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      E2E_WEB_URL: https://agri.feerasta.ai
+      E2E_FIELD_URL: https://field.agri.feerasta.ai
+      E2E_OPS_URL: https://ops.agri.feerasta.ai
+      E2E_APPROVE_URL: https://approve.agri.feerasta.ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Run smoke spec only
+        run: pnpm exec playwright test e2e/specs/00-smoke.spec.ts --project=web
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: playwright-report
+          retention-days: 7

@@ -11,6 +11,9 @@
     "typecheck": "tsc --noEmit",
     "build-mf-brief": "tsx scripts/build-mf-brief.ts",
     "build-release-notes": "tsx scripts/build-mf-brief.ts",
+    "build-worker-handbook": "tsx scripts/build-worker-handbook.ts",
+    "build-supervisor-manual": "tsx scripts/build-supervisor-manual.ts",
+    "build-quick-reference": "tsx scripts/build-quick-reference.ts",
     "build-openapi": "tsx scripts/generate-openapi.ts"
   },
   "dependencies": {

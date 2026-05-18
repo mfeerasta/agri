@@ -1157,3 +1157,62 @@ but loses the type discipline; reporting code would always have to defensively c
 
 **Implications.** If the federal Kisan e-Credit (Sindh) program comes online and behaves
 differently, we will add it as another named kind rather than overloading 'kissan_card'.
+
+## 2026-05-18, Playwright e2e harness for the pilot golden path
+
+**Decision.** Adopt Playwright (not Cypress) for end-to-end coverage of the worker-to-director flow plus every critical mutation. Specs live under `e2e/specs/`, helpers under `e2e/helpers/`, fixtures under `e2e/fixtures/`. CI runs the full suite against an ephemeral Supabase on main pushes and on PRs labelled `run-e2e`. A separate smoke workflow polls production every 15 minutes and after each `deploy-prod`.
+
+**Why.** Playwright drives the four Next.js shells (web, field, ops, approve) in one process, gives native trace + video on failure, and handles multiple isolated browser contexts in a single test (needed for cross-role flows like worker submits then director approves). Cypress' iframe-based approach struggles with cross-origin app shells and lacks built-in service-worker offline emulation that spec 09 leans on.
+
+**Alternatives considered.** Cypress (one-runner-per-tab limitation, weaker multi-context support); Selenium (slower, more flakey, fewer ergonomics); pure API integration tests (would miss PWA offline queue, GPS capture, file-upload validation, hydration regressions).
+
+**Implications.**
+- Per-test entity isolation via a random `e2e-<rand>` tag in `code`/`name` columns keeps parallel runs safe and makes cleanup a one-liner. Service-role admin client handles setup/teardown so we are not paying UI-click latency for every seed step.
+- Smoke spec is prefix `00-` and lives alone in the production polling workflow. The remaining 15 specs only run against ephemeral Supabase so we never write `e2e-` rows to production.
+- OCR (spec 13) and AI feasibility (spec 10) are gated on `OPENAI_API_KEY` so PRs do not burn external API spend.
+- RLS isolation (spec 15) is an explicit security test, not a happy-path test. It hits Supabase directly with anon-key auth to prove that an authenticated entity-A user cannot read entity-B rows via the data API, then verifies UI-level deny at `/app/fields/<id>`. Catches the worst-case multi-tenant leak class before it reaches pilots.
+- Trace on first retry, screenshot + video on failure, 60s global timeout, 10s expect timeout. `E2E_SEQUENTIAL=1` opts into serial execution for flake hunts.
+
+
+---
+
+## Pilot onboarding kit (2026-05-18)
+
+**Decision.** Ship a five-piece onboarding kit before the Rabi 2025-26 pilot: Urdu Nastaliq
+worker handbook, bilingual supervisor manual, three short screen-recording video scripts (worker
+90 seconds, supervisor 3 minutes, MF approver 1 minute), a laminated A5 quick-reference card
+for the tea room, and a T-7/Day-0/Week-1/Day-30 launch checklist for MF.
+
+**Why Urdu Nastaliq, not Roman Urdu, for the worker handbook.** Workers identify their own
+language by script. Showing them Roman Urdu signals "this was not made for you." Nastaliq plus
+heavy emoji (📷 🎤 ✅ 🚜) carries low-literacy users further than romanisation does. PDF
+generation registers Noto Nastaliq Urdu from a CDN at build time and forces RTL layout.
+
+**Why the supervisor manual is bilingual.** Supervisors switch contexts: Urdu with workers,
+English in the ops app, English-ish numbers with the farm manager. Side-by-side bilingual is
+faster to scan than two separate documents.
+
+**Why a laminated card and not just digital.** Phones die mid-day. The card hangs in the tea
+room and survives spills, monsoon, and forgotten chargers. A5 landscape so it fits a clipboard
+and is large enough to read across a room.
+
+**Why three video lengths, not one.** Attention budgets differ: a worker watches 90 seconds on
+WhatsApp before the next forward, a supervisor sits through 3 minutes if it teaches the daily
+rhythm, MF watches 60 seconds because the approver flow is already short.
+
+**Why the checklist splits T-7, Day 0, Week 1, Day 30.** Anchors expectations and prevents the
+classic launch-day cram. T-7 is provisioning. Day 0 is the first ticks. Week 1 captures the
+friction. Day 30 is the first honest review against the seasonal numbers.
+
+**Alternatives considered.** A single bilingual handbook (rejected; bilingual documents read
+as half-Urdu for workers, which is worse than monolingual Urdu). Long-form video tutorials
+(rejected; workers will not finish them, supervisors will not rewatch them). Digital-only
+quick reference (rejected; tea room is offline). A printed monthly playbook (rejected; would go
+stale and lose authority).
+
+**Implications.** The web app exposes three new build scripts (`build-worker-handbook`,
+`build-supervisor-manual`, `build-quick-reference`) that emit PDFs into `docs/`. The field PWA
+gets a separate eight-step in-context tour (`worker-field-pwa-tour.ts`) distinct from the
+`/training` sandbox: the tour runs against the real UI on first login, the sandbox is a safe
+place to practice. Reissue cycle: handbook and quick-reference reprinted at each season change,
+videos reshot only when a flow materially changes.
