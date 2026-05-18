@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build-mf-brief": "tsx scripts/build-mf-brief.ts",
+    "build-release-notes": "tsx scripts/build-mf-brief.ts",
+    "build-openapi": "tsx scripts/generate-openapi.ts"
   },
   "dependencies": {
     "@zameen/db": "workspace:*",

@@ -1,6 +1,13 @@
 User-agent: *
 Allow: /
+Allow: /features
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+Allow: /api/docs
 Disallow: /app
 Disallow: /api
 Disallow: /admin
+Disallow: /login
 Sitemap: https://agri.feerasta.ai/sitemap.xml
