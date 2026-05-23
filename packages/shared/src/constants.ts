@@ -19,6 +19,7 @@ export const APPROVAL_TYPES = [
   'forward_contract',
   'preventive_maintenance',
   'vendor_selection',
+  'carbon_credit_sale',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -46,7 +47,64 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   forward_contract: { supervisor: 0, farm_manager: 0, director: 0 },
   preventive_maintenance: { supervisor: 5_000, farm_manager: 25_000, director: 100_000 },
   vendor_selection: { supervisor: 0, farm_manager: 100_000, director: 500_000 },
+  carbon_credit_sale: { supervisor: 0, farm_manager: 0, director: 0 },
 };
+
+// Carbon emission factors (kg CO2e per unit).
+export const CARBON_FACTORS = {
+  dieselCombustionKgPerLiter: 2.68,
+  gridElectricityKgPerKwh: 0.45, // Pakistan grid average
+  entericCh4KgPerCattleYear: 89, // Sahiwal cow estimate
+  entericCh4KgPerBuffaloYear: 110,
+  entericCh4KgPerGoatYear: 9,
+  entericCh4KgPerSheepYear: 8,
+  gwpCh4: 25,
+  gwpN2o: 298,
+  riceFloodedCh4KgPerAcreSeason: 540, // continuous flooding baseline
+  riceAwdReductionFactor: 0.48, // AWD cuts ~48%
+  syntheticNFertilizerN2oFractionKgPerKgN: 0.01, // IPCC tier-1
+  fertilizerKgNPerKgUrea: 0.46,
+  transportKgCo2ePerTonKm: 0.062, // road freight
+  soilCarbonTcPerAcreYearNoTill: 0.18,
+  soilCarbonTcPerAcreYearCoverCrop: 0.14,
+  soilCarbonTcPerAcreYearBiochar: 0.95,
+  agroforestryTco2ePerTreeYear: 0.022,
+  cToCo2eFactor: 3.667,
+} as const;
+
+export const CARBON_CREDIT_STANDARDS = [
+  'verra_vcs',
+  'gold_standard',
+  'climate_action_reserve',
+  'plan_vivo',
+  'clean_development_mechanism',
+  'custom_voluntary',
+] as const;
+export type CarbonCreditStandard = (typeof CARBON_CREDIT_STANDARDS)[number];
+
+export const SUSTAINABILITY_PRACTICE_KINDS = [
+  'no_till',
+  'reduced_till',
+  'cover_cropping',
+  'crop_rotation',
+  'organic_amendments',
+  'biochar_application',
+  'agroforestry',
+  'contour_farming',
+  'drip_irrigation',
+  'mulching',
+  'integrated_pest_management',
+  'reduced_synthetic_fertilizer',
+  'manure_management',
+  'rice_alternate_wetting_drying',
+  'enteric_methane_reducer',
+  'renewable_energy',
+  'water_harvesting',
+  'windbreak_planting',
+  'rotational_grazing',
+  'other',
+] as const;
+export type SustainabilityPracticeKind = (typeof SUSTAINABILITY_PRACTICE_KINDS)[number];
 
 export const USER_ROLES = [
   'super_admin',

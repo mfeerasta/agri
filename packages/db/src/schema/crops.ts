@@ -54,6 +54,7 @@ export const cropStageLogs = zameen.table('crop_stage_logs', {
 export const harvestRecords = zameen.table('harvest_records', {
   id: uuid('id').primaryKey().defaultRandom(),
   cropPlanId: uuid('crop_plan_id').notNull().references(() => cropPlans.id, { onDelete: 'cascade' }),
+  varietyId: uuid('variety_id'),
   harvestedOn: timestamp('harvested_on', { withTimezone: true }).notNull(),
   acresHarvested: decimal('acres_harvested', { precision: 12, scale: 4 }).notNull(),
   grossYieldKg: decimal('gross_yield_kg', { precision: 14, scale: 2 }).notNull(),

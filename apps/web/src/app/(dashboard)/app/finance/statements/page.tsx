@@ -27,6 +27,9 @@ export default async function StatementsPage(): Promise<React.JSX.Element> {
         <Link href={'/finance/statements/hr-safety' as never} className="ml-2 px-3 py-1 text-sm border rounded bg-[var(--ink)] text-white inline-block">
           HR &amp; safety dashboard →
         </Link>
+        <Link href={'/finance/statements/yield-optimization' as never} className="ml-2 px-3 py-1 text-sm border rounded bg-[var(--ink)] text-white inline-block">
+          Yield optimization report →
+        </Link>
       </div>
     </div>
   );

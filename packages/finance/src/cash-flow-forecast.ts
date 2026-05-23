@@ -138,6 +138,18 @@ export async function computeCashFlowForecast({
     if (b) b.outflow += Number(t.estimatedHours) * DEFAULT_HOURLY_PKR;
   }
 
+  // Outflows: projected inventory reorders from active reorder_rules.
+  try {
+    const mod = await import('./inventory-forecast.js');
+    const reorders = await mod.projectedReorderOutflows({ entityId, horizonDays });
+    for (const r of reorders) {
+      const b = buckets.get(r.date);
+      if (b) b.outflow += r.amountPkr;
+    }
+  } catch {
+    // inventory-forecast optional at call time
+  }
+
   // Inflows: pending mandi settlements (dispatched but not yet settled, projected for tomorrow).
   const dispatched = await db
     .select()

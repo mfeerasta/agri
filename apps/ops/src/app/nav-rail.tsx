@@ -10,6 +10,7 @@ import {
   Coins,
   Beef,
   Truck,
+  Leaf,
 } from 'lucide-react';
 
 const NAV = [
@@ -21,6 +22,7 @@ const NAV = [
   { href: '/payroll', label: 'Payroll', icon: Coins },
   { href: '/livestock', label: 'Livestock', icon: Beef },
   { href: '/logistics', label: 'Transport', icon: Truck },
+  { href: '/sustainability', label: 'Sustain', icon: Leaf },
 ] as const;
 
 export function OpsNavRail() {

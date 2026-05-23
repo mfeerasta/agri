@@ -47,7 +47,11 @@ export function HarvestForm({ cropPlanId, entityId, storageLocations }: Props) {
     const result = await logHarvest(values);
     setSubmitting(false);
     if (!result.ok) setServerError(result.error);
-    else window.location.href = `/crops/plans/${cropPlanId}`;
+    else if (typeof result.id === 'string' && confirm('Record harvest losses (shattering, spillage, rain damage)?')) {
+      window.location.href = `/crops/harvest-losses/new?harvest=${result.id}`;
+    } else {
+      window.location.href = `/crops/plans/${cropPlanId}`;
+    }
   });
 
   return (
