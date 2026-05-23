@@ -9,6 +9,7 @@ import {
   CheckSquare,
   Coins,
   Beef,
+  Truck,
 } from 'lucide-react';
 
 const NAV = [
@@ -19,6 +20,7 @@ const NAV = [
   { href: '/approve', label: 'Approve', icon: CheckSquare },
   { href: '/payroll', label: 'Payroll', icon: Coins },
   { href: '/livestock', label: 'Livestock', icon: Beef },
+  { href: '/logistics', label: 'Transport', icon: Truck },
 ] as const;
 
 export function OpsNavRail() {

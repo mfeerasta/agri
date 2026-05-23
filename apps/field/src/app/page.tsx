@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BigButton, Masthead } from '@zameen/ui';
 import { t, formatDateLocalized } from '@zameen/locale';
-import { Clock, Fuel, Wrench, Wheat, PackageOpen, MilkOff, ListChecks, Camera, User, ImageDown, Stethoscope, Bug } from 'lucide-react';
+import { Clock, Fuel, Wrench, Wheat, PackageOpen, MilkOff, ListChecks, Camera, User, ImageDown, Stethoscope, Bug, Truck } from 'lucide-react';
 import { getFieldSession } from '../lib/session';
 import { SyncBadge } from '../components/sync-badge';
 import { LocaleToggle } from '../components/locale-toggle';
@@ -35,6 +35,7 @@ export default async function FieldHome() {
       <Link href="/tasks"><BigButton icon={<ListChecks />} label={t('task.list', locale)} tone="primary" /></Link>
       <Link href="/diesel"><BigButton icon={<Fuel />} label={t('nav.diesel', locale)} tone="primary" /></Link>
       <Link href="/repair/new"><BigButton icon={<Wrench />} label={t('repair.request', locale)} tone="warning" /></Link>
+      <Link href="/trip"><BigButton icon={<Truck />} label="ٹرپ" tone="primary" /></Link>
       <Link href="/harvest"><BigButton icon={<Wheat />} label={t('harvest.title', locale)} tone="success" /></Link>
       <Link href="/diagnose"><BigButton icon={<Stethoscope />} label="فصل کی تشخیص" tone="warning" /></Link>
       <Link href="/scouting"><BigButton icon={<Bug />} label="کیڑے مار جائزہ" tone="warning" /></Link>

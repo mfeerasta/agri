@@ -16,3 +16,5 @@ export * from './statements/index.js';
 export * from './lifecycle-cost.js';
 export * from './maintenance-trigger.js';
 export * from './maintenance-templates.js';
+export * from './tax-calculators.js';
+export * from './fertilizer-recommendation.js';

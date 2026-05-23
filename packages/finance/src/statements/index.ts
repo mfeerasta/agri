@@ -10,3 +10,4 @@ export * from './xlsx/balance-sheet-xlsx.js';
 export * from './xlsx/income-statement-xlsx.js';
 export * from './xlsx/cash-flow-xlsx.js';
 export * from './xlsx/field-pnl-xlsx.js';
+export * from './tax-ushr-zakat-summary.js';

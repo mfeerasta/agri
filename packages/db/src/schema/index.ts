@@ -60,3 +60,7 @@ export * from './irrigation.js';
 export * from './tenancy.js';
 export * from './scouting.js';
 export * from './maintenance.js';
+export * from './tax-zakat-ushr.js';
+export * from './soil-health.js';
+export * from './transport.js';
+export * from './hr-training-safety.js';

@@ -98,5 +98,7 @@ export const COST_POOLS = [
   'finance_charges',
   'tax',
   'asset_maintenance',
+  'transport_fuel',
+  'transport_other',
 ] as const;
 export type CostPool = (typeof COST_POOLS)[number];

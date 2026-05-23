@@ -27,9 +27,16 @@ export const workers = zameen.table('workers', {
 export const workerDocuments = zameen.table('worker_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   workerId: uuid('worker_id').notNull().references(() => workers.id, { onDelete: 'cascade' }),
-  documentKind: varchar('document_kind', { length: 32 }).notNull(),
-  fileUrl: text('file_url').notNull(),
+  documentKind: varchar('document_kind', { length: 32 }),
+  fileUrl: text('file_url'),
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  docKind: text('doc_kind'),
+  referenceNumber: text('reference_number'),
+  issuedOn: date('issued_on'),
+  expiresOn: date('expires_on'),
+  storageUrl: text('storage_url'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const attendanceRecords = zameen.table('attendance_records', {

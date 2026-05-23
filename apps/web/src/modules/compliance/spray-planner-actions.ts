@@ -1,10 +1,12 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { and, desc, eq, gte } from 'drizzle-orm';
-import { db, fields, cropPlans, cropProfiles, weatherRecords, tasks } from '@zameen/db';
+import { and, desc, eq, gte, inArray } from 'drizzle-orm';
+import { db, fields, cropPlans, cropProfiles, weatherRecords, tasks, workers, taskAssignments, trainingPrograms, trainingCompletions } from '@zameen/db';
 import {
   planSprayWindows,
   findPesticide,
+  checkSprayAssignmentGate,
+  PESTICIDE_TRAINING_NAME,
   type WeatherForecastDay,
 } from '@zameen/shared';
 import { getSessionContext } from '@/lib/session';
@@ -93,11 +95,59 @@ interface ScheduleArgs {
   scheduledForIso: string;
   startHour: number;
   endHour: number;
+  proposedWorkerIds?: string[];
 }
 
 export async function scheduleSprayTask(args: ScheduleArgs) {
   const ctx = await getSessionContext();
   if (!ctx) return { ok: false as const, error: 'Not authenticated' };
+
+  // Training gate: any proposed worker must have a current "Pesticide handling and PPE" cert.
+  if (args.proposedWorkerIds && args.proposedWorkerIds.length > 0) {
+    const roster = await db
+      .select({ id: workers.id, fullName: workers.fullName, isActive: workers.isActive })
+      .from(workers)
+      .where(eq(workers.entityId, ctx.entityId));
+    const programs = await db
+      .select({ id: trainingPrograms.id, name: trainingPrograms.name })
+      .from(trainingPrograms)
+      .where(eq(trainingPrograms.name, PESTICIDE_TRAINING_NAME));
+    const programIds = programs.map((p) => p.id);
+    const completions = programIds.length
+      ? await db
+          .select({
+            workerId: trainingCompletions.workerId,
+            programId: trainingCompletions.programId,
+            completedOn: trainingCompletions.completedOn,
+            expiresOn: trainingCompletions.expiresOn,
+            passed: trainingCompletions.passed,
+          })
+          .from(trainingCompletions)
+          .where(inArray(trainingCompletions.programId, programIds))
+      : [];
+    const completionsHydrated = completions.map((c) => ({
+      workerId: c.workerId,
+      programName: PESTICIDE_TRAINING_NAME,
+      completedOn: c.completedOn,
+      expiresOn: c.expiresOn,
+      passed: c.passed,
+    }));
+    const gate = checkSprayAssignmentGate({
+      proposedWorkerIds: args.proposedWorkerIds,
+      roster,
+      completions: completionsHydrated,
+    });
+    if (gate.blocked.length > 0) {
+      return {
+        ok: false as const,
+        error: `Blocked: workers missing current ${PESTICIDE_TRAINING_NAME} training.`,
+        blocked: gate.blocked,
+        reasons: gate.reasons,
+        alternates: gate.alternates,
+      };
+    }
+  }
+
   const [row] = await db
     .insert(tasks)
     .values({
@@ -112,6 +162,13 @@ export async function scheduleSprayTask(args: ScheduleArgs) {
       createdBy: ctx.userId,
     })
     .returning();
+
+  if (args.proposedWorkerIds && args.proposedWorkerIds.length > 0 && row) {
+    await db.insert(taskAssignments).values(
+      args.proposedWorkerIds.map((wid) => ({ taskId: row.id, workerId: wid })),
+    );
+  }
+
   revalidatePath('/compliance/spray-diary/planner');
   return { ok: true as const, id: row!.id };
 }

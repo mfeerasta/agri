@@ -43,6 +43,9 @@ export default async function LaborHome() {
         <Link href={'/labor/piece-rate/new' as never} className="border border-[var(--rule)] p-4 hover:bg-[var(--paper-2)]"><div className="smallcaps text-xs">{t('labor.piece_rate', locale)}</div><div className="font-display text-xl mt-1">{t('action.new', locale)}</div></Link>
         <Link href={'/labor/payroll' as never} className="border border-[var(--rule)] p-4 hover:bg-[var(--paper-2)]"><div className="smallcaps text-xs">{t('labor.payroll', locale)}</div><div className="font-display text-xl mt-1">{t('action.view', locale)}</div></Link>
         <Link href={'/labor/labour-cost-log' as never} className="border border-[var(--rule)] p-4 hover:bg-[var(--paper-2)]"><div className="smallcaps text-xs">مزدوری لاگت / Labour cost</div><div className="font-display text-xl mt-1">Daily matrix</div></Link>
+        <Link href={'/labor/training' as never} className="border border-[var(--rule)] p-4 hover:bg-[var(--paper-2)]"><div className="smallcaps text-xs">تربیت / Training</div><div className="font-display text-xl mt-1">Matrix</div></Link>
+        <Link href={'/labor/safety' as never} className="border border-[var(--rule)] p-4 hover:bg-[var(--paper-2)]"><div className="smallcaps text-xs">حفاظت / Safety</div><div className="font-display text-xl mt-1">Hub</div></Link>
+        <Link href={'/labor/ppe' as never} className="border border-[var(--rule)] p-4 hover:bg-[var(--paper-2)]"><div className="smallcaps text-xs">حفاظتی سامان / PPE</div><div className="font-display text-xl mt-1">Register</div></Link>
       </div>
       <SectionDivider label={t('labor.recent_attendance', locale)} />
       <Card>

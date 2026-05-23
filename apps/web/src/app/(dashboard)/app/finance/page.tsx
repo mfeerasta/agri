@@ -15,6 +15,7 @@ export default async function FinanceHome() {
     { href: '/finance/cash-flow', label: t('finance.cash_flow', locale), sub: '90-day forecast' },
     { href: '/finance/reconciliation/inputs', label: t('finance.reconciliation', locale), sub: 'Inputs · Diesel · Bank' },
     { href: '/finance/statements', label: t('finance.statements', locale, 'Statements'), sub: 'PDF + XLSX export' },
+    { href: '/finance/tax', label: 'Tax, zakat, ushr', sub: 'Punjab AIT · FBR · 2.5% · 5%/10%' },
   ];
   return (
     <div>
