@@ -152,6 +152,7 @@ export async function createClaim(input: CreateClaimInput): Promise<Result> {
 }
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  draft: ['reported', 'rejected'],
   reported: ['assessor_pending', 'rejected'],
   assessor_pending: ['assessor_done', 'rejected'],
   assessor_done: ['approved', 'rejected'],
@@ -163,7 +164,7 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 
 export async function updateClaimStatus(
   id: string,
-  status: 'assessor_pending' | 'assessor_done' | 'approved' | 'rejected' | 'paid' | 'closed',
+  status: 'reported' | 'assessor_pending' | 'assessor_done' | 'approved' | 'rejected' | 'paid' | 'closed',
   settledPkr?: number,
   notes?: string,
 ): Promise<Result> {

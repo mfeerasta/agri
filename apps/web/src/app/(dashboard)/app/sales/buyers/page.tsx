@@ -25,7 +25,7 @@ export default async function BuyersPage() {
                 {rows.map((b) => (
                   <tr key={b.id} className="border-t border-[var(--rule)]">
                     <td className="px-3 py-2 font-mono text-xs">{b.code}</td>
-                    <td className="px-3 py-2">{b.name}</td>
+                    <td className="px-3 py-2"><a className="underline" href={`/app/sales/buyers/${b.id}`}>{b.name}</a></td>
                     <td className="px-3 py-2 smallcaps text-[0.7rem]">{b.category}</td>
                     <td className="px-3 py-2 tabular text-xs">{b.phone ?? '—'}</td>
                   </tr>

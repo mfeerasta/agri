@@ -16,6 +16,9 @@ export const APPROVAL_TYPES = [
   'insurance',
   'bonus_award',
   'lease_payment',
+  'forward_contract',
+  'preventive_maintenance',
+  'vendor_selection',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -40,6 +43,9 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   insurance: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
   bonus_award: { supervisor: 0, farm_manager: 25_000, director: 100_000 },
   lease_payment: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
+  forward_contract: { supervisor: 0, farm_manager: 0, director: 0 },
+  preventive_maintenance: { supervisor: 5_000, farm_manager: 25_000, director: 100_000 },
+  vendor_selection: { supervisor: 0, farm_manager: 100_000, director: 500_000 },
 };
 
 export const USER_ROLES = [
@@ -91,5 +97,6 @@ export const COST_POOLS = [
   'depreciation',
   'finance_charges',
   'tax',
+  'asset_maintenance',
 ] as const;
 export type CostPool = (typeof COST_POOLS)[number];

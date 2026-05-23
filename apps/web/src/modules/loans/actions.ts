@@ -75,6 +75,11 @@ export async function createLoan(input: CreateLoanInput): Promise<Result> {
   });
   await db.update(cropLoans).set({ approvalRequestId: req.id }).where(eq(cropLoans.id, row.id));
 
+  if (input.maturityDate) {
+    const { generateEmiSchedule } = await import('@/modules/finance/loan-actions');
+    await generateEmiSchedule(row.id);
+  }
+
   revalidatePath('/finance/loans');
   return { ok: true, id: row.id };
 }

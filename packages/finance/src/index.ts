@@ -13,3 +13,6 @@ export * from './storage-fifo.js';
 export * from './voucher-numbering.js';
 export * from './vouchers/index.js';
 export * from './statements/index.js';
+export * from './lifecycle-cost.js';
+export * from './maintenance-trigger.js';
+export * from './maintenance-templates.js';

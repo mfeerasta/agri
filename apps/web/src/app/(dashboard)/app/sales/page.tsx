@@ -12,6 +12,8 @@ export default async function SalesHome() {
     { href: '/sales/mandi-dispatches/new', label: t('sales.new_dispatch', locale), sub: 'Crop sale flow' },
     { href: '/sales/mandi-settlements/new', label: t('sales.settlement', locale), sub: 'Patti + deductions' },
     { href: '/sales/milk', label: t('sales.milk', locale), sub: 'Dispatches + settlements' },
+    { href: '/sales/pipeline', label: 'Pipeline', sub: 'Opportunity board (Kanban)' },
+    { href: '/sales/forward-contracts', label: 'Forward contracts', sub: 'Pre-harvest commitments' },
   ];
   return (
     <div>

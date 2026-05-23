@@ -7,6 +7,7 @@ export default async function ProcurementHome() {
   const locale = await getLocale();
   const TILES = [
     { href: '/procurement/vendors', label: t('procurement.vendors', locale), sub: 'Dealers + credit terms' },
+    { href: '/procurement/rfqs', label: 'RFQs', sub: 'Request for quote workflow' },
     { href: '/procurement/purchase-orders', label: t('procurement.purchase_orders', locale), sub: 'PO list' },
     { href: '/procurement/purchase-orders/new', label: t('procurement.new_po', locale), sub: 'Approval flow' },
     { href: '/procurement/goods-received/new', label: t('procurement.new_grn', locale), sub: 'Receive + QC' },

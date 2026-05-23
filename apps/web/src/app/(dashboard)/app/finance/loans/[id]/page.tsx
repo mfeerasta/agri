@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
-import { eq, desc } from 'drizzle-orm';
-import { db, cropLoans, cropLoanTransactions } from '@zameen/db';
+import { eq, desc, asc } from 'drizzle-orm';
+import { db, cropLoans, cropLoanTransactions, loanEmiSchedules } from '@zameen/db';
 import { Card, CardContent, CardHeader, CardTitle, EmptyState, Masthead, SectionDivider, Pkr } from '@zameen/ui';
 import { fmtDate } from '@/lib/format';
 import { LoanTransactionForms } from '@/modules/loans/components/loan-transaction-forms';
 import { buildAmortization } from '@/modules/loans/amortization';
+import { EmiPaymentButton } from '@/modules/finance/components/emi-payment-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
   const [loan] = await db.select().from(cropLoans).where(eq(cropLoans.id, id)).limit(1);
   if (!loan) return notFound();
   const txns = await db.select().from(cropLoanTransactions).where(eq(cropLoanTransactions.loanId, id)).orderBy(desc(cropLoanTransactions.occurredOn));
+  const emis = await db.select().from(loanEmiSchedules).where(eq(loanEmiSchedules.loanId, id)).orderBy(asc(loanEmiSchedules.installmentNumber));
 
   const disbursed = txns.filter((t) => t.kind === 'disbursement').reduce((s, t) => s + Number(t.amountPkr), 0);
   const repaid = txns.filter((t) => t.kind === 'principal_repayment').reduce((s, t) => s + Number(t.amountPkr), 0);
@@ -73,9 +75,49 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
         </CardContent>
       </Card>
 
-      {schedule && (
+      <Card>
+        <CardHeader><CardTitle>EMI schedule</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          {emis.length === 0 ? <EmptyState title="No EMI schedule generated. Set a maturity date on the loan." /> : (
+            <table className="w-full text-sm">
+              <thead className="border-b border-[var(--rule)] text-left text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="p-3">#</th>
+                  <th className="p-3">Due</th>
+                  <th className="p-3 text-right">Principal</th>
+                  <th className="p-3 text-right">Interest</th>
+                  <th className="p-3 text-right">Total</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Paid</th>
+                  <th className="p-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {emis.map((e) => (
+                  <tr key={e.id} className={`border-b border-[var(--rule)] ${e.status === 'overdue' ? 'bg-red-50' : ''}`}>
+                    <td className="p-3 tabular">{e.installmentNumber}</td>
+                    <td className="p-3 tabular text-xs">{fmtDate(e.dueOn)}</td>
+                    <td className="p-3 text-right"><Pkr value={e.principalPkr} /></td>
+                    <td className="p-3 text-right"><Pkr value={e.interestPkr} /></td>
+                    <td className="p-3 text-right"><Pkr value={e.totalPkr} /></td>
+                    <td className="p-3 smallcaps text-[0.7rem]">{e.status}</td>
+                    <td className="p-3 text-right">{e.paidPkr ? <Pkr value={e.paidPkr} /> : '—'}</td>
+                    <td className="p-3">
+                      {e.status === 'scheduled' || e.status === 'overdue' || e.status === 'partial'
+                        ? <EmiPaymentButton emiId={e.id} totalPkr={e.totalPkr} />
+                        : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {schedule && emis.length === 0 && (
         <Card>
-          <CardHeader><CardTitle>Amortization schedule</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Amortization preview</CardTitle></CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead className="border-b border-[var(--rule)] text-left text-xs uppercase text-slate-500">

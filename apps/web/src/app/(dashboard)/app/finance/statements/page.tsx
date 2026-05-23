@@ -15,6 +15,12 @@ export default async function StatementsPage(): Promise<React.JSX.Element> {
         <Link href={'/finance/statements/rent-summary' as never} className="px-3 py-1 text-sm border rounded bg-[var(--ink)] text-white inline-block">
           Rent &amp; sharecrop summary →
         </Link>
+        <Link href={'/finance/statements/sales-backlog' as never} className="ml-2 px-3 py-1 text-sm border rounded bg-[var(--ink)] text-white inline-block">
+          Sales backlog →
+        </Link>
+        <Link href={'/finance/statements/procurement-summary' as never} className="ml-2 px-3 py-1 text-sm border rounded bg-[var(--ink)] text-white inline-block">
+          Procurement summary →
+        </Link>
       </div>
     </div>
   );
