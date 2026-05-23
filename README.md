@@ -1,5 +1,11 @@
 # Zameen
 
+[![ci](https://github.com/feerasta/zameen/actions/workflows/ci.yml/badge.svg)](https://github.com/feerasta/zameen/actions/workflows/ci.yml)
+[![mobile-field-ios](https://github.com/feerasta/zameen/actions/workflows/mobile-field-ios.yml/badge.svg)](https://github.com/feerasta/zameen/actions/workflows/mobile-field-ios.yml)
+[![mobile-field-android](https://github.com/feerasta/zameen/actions/workflows/mobile-field-android.yml/badge.svg)](https://github.com/feerasta/zameen/actions/workflows/mobile-field-android.yml)
+[![mobile-ops-ios](https://github.com/feerasta/zameen/actions/workflows/mobile-ops-ios.yml/badge.svg)](https://github.com/feerasta/zameen/actions/workflows/mobile-ops-ios.yml)
+[![mobile-ops-android](https://github.com/feerasta/zameen/actions/workflows/mobile-ops-android.yml/badge.svg)](https://github.com/feerasta/zameen/actions/workflows/mobile-ops-android.yml)
+
 Unified farm operations platform for medium-to-large mixed crop and livestock farms in Pakistan. Pilot at Rupafab Agri (Raiwind Farm) (~100 acres, wheat/maize, Sahiwal dairy, goats).
 
 Primary domain: `agri.feerasta.ai`. Subdomains: `field.agri.feerasta.ai`, `ops.agri.feerasta.ai`, `approve.agri.feerasta.ai`, `api.agri.feerasta.ai`. VPS: Hetzner CPX31, Cloudflare proxy. DB: shared Supabase project `qcvxefbrzkspoldjydrx` (Zameen tables in `zameen` schema, Haazri stays in `public`).

@@ -1,0 +1,62 @@
+name: mobile-version-bump
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: mobile-version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Detect mobile commits since last tag
+        id: detect
+        run: |
+          set -euo pipefail
+          node tools/mobile-detect-bump.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Bump field versions
+        if: steps.detect.outputs.field == 'true'
+        env:
+          BUMP: ${{ steps.detect.outputs.field_bump }}
+        run: node tools/mobile-bump-version.mjs field "$BUMP"
+
+      - name: Bump ops versions
+        if: steps.detect.outputs.ops == 'true'
+        env:
+          BUMP: ${{ steps.detect.outputs.ops_bump }}
+        run: node tools/mobile-bump-version.mjs ops "$BUMP"
+
+      - name: Open PR with version bump
+        if: steps.detect.outputs.field == 'true' || steps.detect.outputs.ops == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/mobile-version-bump
+          delete-branch: true
+          commit-message: "chore(mobile): version bump field=${{ steps.detect.outputs.field_new }} ops=${{ steps.detect.outputs.ops_new }}"
+          title: 'chore(mobile): version bump'
+          body: |
+            Automated mobile version bump from commits using mobile: prefix.
+
+            - field: ${{ steps.detect.outputs.field_new }}
+            - ops: ${{ steps.detect.outputs.ops_new }}
+
+            Merge to publish; tag mobile-field-vX.Y.Z or mobile-ops-vX.Y.Z manually after merge to trigger native builds.
+          labels: mobile,release

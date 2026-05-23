@@ -3,6 +3,7 @@ import { Masthead, SectionDivider, DashboardGrid, EmptyState } from '@zameen/ui'
 import type { WidgetConfig } from '@zameen/ui';
 import { getDefaultDashboard } from '@/modules/dashboards/actions';
 import { WidgetRenderer } from '@/modules/dashboards/widget-renderer';
+import { LiveActivityWidget } from '@/modules/dashboard/components/live-activity-widget';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,9 @@ export default async function DashboardsHome() {
         </Link>
       </div>
       <DashboardGrid widgets={widgets} renderWidget={(w) => <WidgetRenderer widget={w} />} />
+      <div className="mt-6">
+        <LiveActivityWidget max={20} />
+      </div>
     </div>
   );
 }

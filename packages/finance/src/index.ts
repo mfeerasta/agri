@@ -18,3 +18,5 @@ export * from './maintenance-trigger.js';
 export * from './maintenance-templates.js';
 export * from './tax-calculators.js';
 export * from './fertilizer-recommendation.js';
+export * from './consolidation/index.js';
+export * from './auditor-export-pack.js';

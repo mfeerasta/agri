@@ -10,6 +10,7 @@ export * from './components/photo-capture.js';
 export * from './components/voice-input.js';
 export * from './components/voice-note.js';
 export * from './components/approval-banner.js';
+export * from './components/auditor-banner.js';
 export * from './components/approval-chain-view.js';
 export * from './components/pkr.js';
 export * from './components/pkr-input.js';

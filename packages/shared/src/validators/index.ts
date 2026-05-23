@@ -19,3 +19,4 @@ export * from './crop-diagnostics.js';
 export * from './tenancy.js';
 export * from './maintenance.js';
 export * from './transport.js';
+export * from './e-signing.js';
