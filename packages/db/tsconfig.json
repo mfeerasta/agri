@@ -2,7 +2,16 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "noEmit": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/__mocks__/**",
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/seed.ts",
+    "src/seed-minimal.ts"
+  ]
 }
