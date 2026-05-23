@@ -47,6 +47,24 @@ export default async function LivestockHome() {
         <Link href={'/livestock/feed/new' as never} className="rounded-md bg-emerald-600 px-4 py-2 text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">{t('livestock.log_feed', locale)}</Link>
       </div>
       <SectionDivider />
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <Link href={'/livestock/milk-log' as never} className="rounded-lg border border-[var(--border)] p-4 hover:bg-[var(--surface-2)]">
+          <div className="text-lg font-semibold">دودھ لاگ</div>
+          <div className="text-sm text-[var(--muted)]">Milk Log</div>
+        </Link>
+        <Link href={'/livestock/feed-log' as never} className="rounded-lg border border-[var(--border)] p-4 hover:bg-[var(--surface-2)]">
+          <div className="text-lg font-semibold">فیڈ لاگ</div>
+          <div className="text-sm text-[var(--muted)]">Feed Log</div>
+        </Link>
+        <Link href={'/livestock/breeding' as never} className="rounded-lg border border-[var(--border)] p-4 hover:bg-[var(--surface-2)]">
+          <div className="text-lg font-semibold">افزائش نسل</div>
+          <div className="text-sm text-[var(--muted)]">Breeding</div>
+        </Link>
+        <Link href={'/livestock/health' as never} className="rounded-lg border border-[var(--border)] p-4 hover:bg-[var(--surface-2)]">
+          <div className="text-lg font-semibold">صحت</div>
+          <div className="text-sm text-[var(--muted)]">Health</div>
+        </Link>
+      </div>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatBlock label="Cattle" value={counts.cattle ?? 0} />
         <StatBlock label="Buffalo" value={counts.buffalo ?? 0} />

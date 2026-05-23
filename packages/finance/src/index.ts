@@ -8,6 +8,7 @@ export * from './reconciliation.js';
 export * from './vendor-scorecard.js';
 export * from './yoy.js';
 export * from './worker-scoring.js';
+export * from './performance-bonus.js';
 export * from './storage-fifo.js';
 export * from './voucher-numbering.js';
 export * from './vouchers/index.js';

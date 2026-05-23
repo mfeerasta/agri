@@ -49,6 +49,9 @@ export default async function CropsListPage() {
         <Link href={'/crops/board' as never} className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--surface-2)] min-h-[44px] md:min-h-[40px] inline-flex items-center">
           {t('crops.board', locale)}
         </Link>
+        <Link href={'/app/crops/feasibility' as never} className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--surface-2)] min-h-[44px] md:min-h-[40px] inline-flex items-center">
+          Feasibility planner
+        </Link>
         <Link href={'/crops/plans/new' as never} className="rounded-md bg-emerald-700 px-4 py-2 text-sm text-white min-h-[44px] md:min-h-[40px] inline-flex items-center">
           {t('crops.new_plan', locale)}
         </Link>

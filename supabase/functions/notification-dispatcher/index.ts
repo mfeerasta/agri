@@ -102,7 +102,9 @@ async function deliverPush(_supabase: SupabaseClient, _n: NotificationRow): Prom
 }
 
 async function deliverWhatsapp(_supabase: SupabaseClient, _n: NotificationRow): Promise<void> {
-  // Hook into the whatsapp templater pipeline.
+  // Owned by the dedicated `notify-whatsapp` edge function. We deliberately
+  // do not call Meta from here. The row stays queued (sent_at null,
+  // failed_reason null) and the dispatcher picks it up on its next tick.
 }
 
 async function deliverEmail(_supabase: SupabaseClient, _n: NotificationRow): Promise<void> {
@@ -145,7 +147,11 @@ async function dispatchOne(
   else if (channel === 'whatsapp') await deliverWhatsapp(supabase, n);
   else if (channel === 'email') await deliverEmail(supabase, n);
 
-  await markSent(supabase, n.id);
+  // WhatsApp delivery is owned by the dedicated `notify-whatsapp` function.
+  // Leave the row queued (sent_at null) so that dispatcher claims it.
+  if (channel !== 'whatsapp') {
+    await markSent(supabase, n.id);
+  }
   return 'sent';
 }
 

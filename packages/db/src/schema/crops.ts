@@ -16,6 +16,8 @@ export const cropProfiles = zameen.table('crop_profiles', {
   yieldBenchmarkPerAcre: decimal('yield_benchmark_per_acre', { precision: 12, scale: 4 }),
   yieldUnit: varchar('yield_unit', { length: 16 }).notNull().default('mann'),
   recommendedSeedingRateKgPerAcre: decimal('recommended_seeding_rate_kg_per_acre', { precision: 10, scale: 4 }),
+  recommendedYieldKgPerAcre: decimal('recommended_yield_kg_per_acre', { precision: 10, scale: 2 }),
+  defaultCostBreakdown: jsonb('default_cost_breakdown').$type<Record<string, number>>().notNull().default({}),
   notes: text('notes'),
 });
 

@@ -1,23 +1,50 @@
 import Link from 'next/link';
-import { Masthead, SectionDivider, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@zameen/ui';
+import { Masthead, SectionDivider, Card, CardContent, CardHeader, CardTitle, EmptyState, StatBlock, Pkr } from '@zameen/ui';
 import { db, animals, breedingEvents, milkRecords, healthEvents, feedRecords } from '@zameen/db';
 import { eq, desc } from 'drizzle-orm';
+import { lifetimeMilkLiters } from '@/modules/livestock/milk-actions';
+import { lifetimeFeedCostForAnimal } from '@/modules/livestock/feed-actions';
+import { countCalvings, predictNextCalving } from '@/modules/livestock/breeding-actions';
+import { currentHealthStatus } from '@/modules/livestock/health-actions';
 
 export default async function AnimalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [animal] = await db.select().from(animals).where(eq(animals.id, id)).limit(1);
   if (!animal) return <EmptyState title="Animal not found" />;
-  const [breeds, milk, healths, feeds] = await Promise.all([
+  const [breeds, milk, healths, feeds, totalMilkL, totalFeedPkr, calvings, gestationStats, healthStatus] = await Promise.all([
     db.select().from(breedingEvents).where(eq(breedingEvents.animalId, id)).orderBy(desc(breedingEvents.eventDate)),
     db.select().from(milkRecords).where(eq(milkRecords.animalId, id)).orderBy(desc(milkRecords.recordedOn)).limit(60),
     db.select().from(healthEvents).where(eq(healthEvents.animalId, id)).orderBy(desc(healthEvents.eventDate)),
     db.select().from(feedRecords).where(eq(feedRecords.animalId, id)).orderBy(desc(feedRecords.recordedOn)).limit(30),
+    lifetimeMilkLiters(id),
+    lifetimeFeedCostForAnimal(id),
+    countCalvings(id),
+    predictNextCalving(id),
+    currentHealthStatus(id),
   ]);
 
   return (
     <div className="space-y-6">
       <Masthead section={`Livestock / Animal ${animal.earTag}`} />
       <SectionDivider />
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+        <StatBlock label="Lifetime milk (L)" value={Number(totalMilkL.toFixed(1))} />
+        <Card>
+          <CardHeader><CardTitle className="text-xs">Lifetime feed cost</CardTitle></CardHeader>
+          <CardContent className="text-2xl font-semibold"><Pkr value={totalFeedPkr} /></CardContent>
+        </Card>
+        <StatBlock label="Calvings" value={calvings} />
+        <Card>
+          <CardHeader><CardTitle className="text-xs">Predicted next calving</CardTitle></CardHeader>
+          <CardContent className="text-sm">
+            {gestationStats ? `~${gestationStats.avgGestationDays}d gestation (n=${gestationStats.calvings})` : '—'}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-xs">Current health</CardTitle></CardHeader>
+          <CardContent className="text-sm">{healthStatus}</CardContent>
+        </Card>
+      </div>
       <Card>
         <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-3 gap-4 text-sm">

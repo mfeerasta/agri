@@ -38,6 +38,7 @@ export const inputTypeEnum = zameen.enum('input_type', [
   'fungicide',
   'fuel',
   'packaging',
+  'feed',
   'other',
 ]);
 
@@ -112,6 +113,7 @@ export const approvalTypeEnum = zameen.enum('approval_type', [
   'tax_payment',
   'loan',
   'insurance',
+  'bonus_award',
 ]);
 
 export const animalSpeciesEnum = zameen.enum('animal_species', ['cattle', 'buffalo', 'goat', 'sheep', 'other']);

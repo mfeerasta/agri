@@ -30,6 +30,7 @@ export const notifications = zameen.table('notifications', {
   deepLink: text('deep_link'),
   payload: jsonb('payload'),
   sentAt: timestamp('sent_at', { withTimezone: true }),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
   readAt: timestamp('read_at', { withTimezone: true }),
   failedReason: text('failed_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

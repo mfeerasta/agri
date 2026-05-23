@@ -48,3 +48,6 @@ export * from './air-quality.js';
 export * from './nearby-features-cache.js';
 export * from './notification-preferences.js';
 export * from './slow-queries.js';
+export * from './feasibility-planner.js';
+export * from './bonus-rule-sets.js';
+export * from './whatsapp-inbound.js';
