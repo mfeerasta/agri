@@ -1,0 +1,82 @@
+import { boolean, date, decimal, integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { zameen } from './_schema.js';
+import { entities } from './core.js';
+
+export const bankAccounts = zameen.table('bank_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityId: uuid('entity_id').notNull().references(() => entities.id, { onDelete: 'cascade' }),
+  bankName: text('bank_name').notNull(),
+  accountNumber: text('account_number').notNull(),
+  iban: text('iban'),
+  accountTitle: text('account_title').notNull(),
+  branchCode: text('branch_code'),
+  branchName: text('branch_name'),
+  accountKind: text('account_kind').notNull(),
+  currency: text('currency').notNull().default('PKR'),
+  signatories: jsonb('signatories'),
+  openingBalancePkr: decimal('opening_balance_pkr', { precision: 14, scale: 2 }).notNull().default('0'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const bankTransactions = zameen.table('bank_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => bankAccounts.id, { onDelete: 'cascade' }),
+  transactionDate: date('transaction_date').notNull(),
+  valueDate: date('value_date'),
+  amountPkr: decimal('amount_pkr', { precision: 14, scale: 2 }).notNull(),
+  direction: text('direction').notNull(),
+  description: text('description').notNull(),
+  counterparty: text('counterparty'),
+  counterpartyAccount: text('counterparty_account'),
+  referenceNumber: text('reference_number'),
+  bankReference: text('bank_reference'),
+  category: text('category'),
+  matchedToKind: text('matched_to_kind'),
+  matchedToId: uuid('matched_to_id'),
+  matchedAt: timestamp('matched_at', { withTimezone: true }),
+  matchedBy: uuid('matched_by'),
+  status: text('status').notNull().default('unreconciled'),
+  rawJsonb: jsonb('raw_jsonb'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const bankStatements = zameen.table('bank_statements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull().references(() => bankAccounts.id, { onDelete: 'cascade' }),
+  periodStart: date('period_start').notNull(),
+  periodEnd: date('period_end').notNull(),
+  openingBalancePkr: decimal('opening_balance_pkr', { precision: 14, scale: 2 }).notNull(),
+  closingBalancePkr: decimal('closing_balance_pkr', { precision: 14, scale: 2 }).notNull(),
+  totalCreditsPkr: decimal('total_credits_pkr', { precision: 14, scale: 2 }).notNull(),
+  totalDebitsPkr: decimal('total_debits_pkr', { precision: 14, scale: 2 }).notNull(),
+  transactionCount: integer('transaction_count').notNull(),
+  statementUrl: text('statement_url'),
+  importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+  importedBy: uuid('imported_by'),
+  reconciliationStatus: text('reconciliation_status').notNull().default('pending'),
+});
+
+export const paymentOrders = zameen.table('payment_orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityId: uuid('entity_id').notNull().references(() => entities.id, { onDelete: 'cascade' }),
+  fromAccountId: uuid('from_account_id').notNull().references(() => bankAccounts.id),
+  payeeName: text('payee_name').notNull(),
+  payeeAccount: text('payee_account'),
+  payeeIban: text('payee_iban'),
+  payeeBank: text('payee_bank'),
+  payeeCnic: text('payee_cnic'),
+  amountPkr: decimal('amount_pkr', { precision: 14, scale: 2 }).notNull(),
+  paymentKind: text('payment_kind').notNull(),
+  relatedInvoiceId: uuid('related_invoice_id'),
+  relatedPayrollRunId: uuid('related_payroll_run_id'),
+  scheduledFor: date('scheduled_for'),
+  executedOn: date('executed_on'),
+  bankReference: text('bank_reference'),
+  approvalRequestId: uuid('approval_request_id'),
+  status: text('status').notNull().default('draft'),
+  failureReason: text('failure_reason'),
+  ifracToken: text('ifrac_token'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -27,3 +27,8 @@ export * from './quality-grading.js';
 export * from './ar-aging.js';
 export * from './custom-report-engine.js';
 export * from './strategic-simulator.js';
+export * from './processing-engine.js';
+export * from './bank-reconciliation.js';
+export * from './stakeholder-reporting.js';
+export * from './pdf/stakeholder-report-pdf.js';
+export * from './agronomic-decisions.js';

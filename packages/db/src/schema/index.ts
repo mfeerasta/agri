@@ -79,3 +79,7 @@ export * from './ar-aging.js';
 export * from './custom-reports.js';
 export * from './energy.js';
 export * from './strategic-planning.js';
+export * from './processing.js';
+export * from './banking.js';
+export * from './stakeholder-reporting.js';
+export * from './decision-support.js';

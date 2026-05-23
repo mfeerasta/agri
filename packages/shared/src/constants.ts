@@ -26,6 +26,7 @@ export const APPROVAL_TYPES = [
   'ar_write_off',
   'quality_complaint',
   'strategic_initiative',
+  'bank_payment',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -60,6 +61,7 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   ar_write_off: { supervisor: 0, farm_manager: 0, director: 0 },
   quality_complaint: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
   strategic_initiative: { supervisor: 0, farm_manager: 0, director: 0 },
+  bank_payment: { supervisor: 25_000, farm_manager: 250_000, director: 1_000_000 },
 };
 
 // Carbon emission factors (kg CO2e per unit).

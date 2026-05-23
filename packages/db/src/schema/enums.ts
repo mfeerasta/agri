@@ -118,6 +118,7 @@ export const approvalTypeEnum = zameen.enum('approval_type', [
   'forward_contract',
   'preventive_maintenance',
   'vendor_selection',
+  'bank_payment',
 ]);
 
 export const animalSpeciesEnum = zameen.enum('animal_species', ['cattle', 'buffalo', 'goat', 'sheep', 'other']);
