@@ -20,6 +20,11 @@ export const APPROVAL_TYPES = [
   'preventive_maintenance',
   'vendor_selection',
   'carbon_credit_sale',
+  'ar_receipt',
+  'buyer_credit_limit',
+  'ar_dispute_resolution',
+  'ar_write_off',
+  'quality_complaint',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -48,6 +53,11 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   preventive_maintenance: { supervisor: 5_000, farm_manager: 25_000, director: 100_000 },
   vendor_selection: { supervisor: 0, farm_manager: 100_000, director: 500_000 },
   carbon_credit_sale: { supervisor: 0, farm_manager: 0, director: 0 },
+  ar_receipt: { supervisor: 50_000, farm_manager: 500_000, director: null },
+  buyer_credit_limit: { supervisor: 0, farm_manager: 0, director: 0 },
+  ar_dispute_resolution: { supervisor: 0, farm_manager: 100_000, director: 500_000 },
+  ar_write_off: { supervisor: 0, farm_manager: 0, director: 0 },
+  quality_complaint: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
 };
 
 // Carbon emission factors (kg CO2e per unit).
@@ -158,5 +168,7 @@ export const COST_POOLS = [
   'asset_maintenance',
   'transport_fuel',
   'transport_other',
+  'post_harvest',
+  'quality_complaint',
 ] as const;
 export type CostPool = (typeof COST_POOLS)[number];

@@ -12,7 +12,8 @@
     "./validators": "./src/validators/index.ts",
     "./integrations/slack": "./src/integrations/slack.ts",
     "./integrations/google-calendar": "./src/integrations/google-calendar.ts",
-    "./digests": "./src/digests/index.ts"
+    "./digests": "./src/digests/index.ts",
+    "./assistant": "./src/assistant/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

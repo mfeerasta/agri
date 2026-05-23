@@ -72,3 +72,7 @@ export * from './auditor-export-packs.js';
 export * from './e-signing.js';
 export * from './cooperative.js';
 export * from './sustainability.js';
+export * from './assistant.js';
+export * from './quality.js';
+export * from './ar-aging.js';
+export * from './custom-reports.js';
