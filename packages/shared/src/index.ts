@@ -4,6 +4,8 @@ export * from './constants.js';
 export * from './validators/index.js';
 export * from './utilities.js';
 export * from './whatsapp.js';
+export * from './sms-gateway.js';
+export * from './transliterate.js';
 export * from './email.js';
 export * from './r2.js';
 export * from './ocr.js';

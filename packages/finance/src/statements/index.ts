@@ -6,6 +6,7 @@ export * from './pdf/balance-sheet-pdf.js';
 export * from './pdf/income-statement-pdf.js';
 export * from './pdf/cash-flow-pdf.js';
 export * from './pdf/field-pnl-pdf.js';
+export * from './pdf/strategic-plan-pdf.js';
 export * from './xlsx/balance-sheet-xlsx.js';
 export * from './xlsx/income-statement-xlsx.js';
 export * from './xlsx/cash-flow-xlsx.js';

@@ -26,3 +26,4 @@ export * from './carbon-engine.js';
 export * from './quality-grading.js';
 export * from './ar-aging.js';
 export * from './custom-report-engine.js';
+export * from './strategic-simulator.js';

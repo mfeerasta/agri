@@ -25,6 +25,7 @@ export const APPROVAL_TYPES = [
   'ar_dispute_resolution',
   'ar_write_off',
   'quality_complaint',
+  'strategic_initiative',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -58,6 +59,7 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   ar_dispute_resolution: { supervisor: 0, farm_manager: 100_000, director: 500_000 },
   ar_write_off: { supervisor: 0, farm_manager: 0, director: 0 },
   quality_complaint: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
+  strategic_initiative: { supervisor: 0, farm_manager: 0, director: 0 },
 };
 
 // Carbon emission factors (kg CO2e per unit).
@@ -170,5 +172,6 @@ export const COST_POOLS = [
   'transport_other',
   'post_harvest',
   'quality_complaint',
+  'electricity',
 ] as const;
 export type CostPool = (typeof COST_POOLS)[number];
