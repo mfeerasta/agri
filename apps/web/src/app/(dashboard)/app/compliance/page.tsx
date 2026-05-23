@@ -6,9 +6,10 @@ import { getLocale } from '@/lib/locale';
 export default async function ComplianceHome() {
   const locale = await getLocale();
   const TILES = [
-    { href: '/compliance/documents', label: t('compliance.documents', locale), sub: 'Fard, mutations, deeds' },
+    { href: '/compliance/documents', label: t('compliance.documents', locale), sub: 'Fard, mutations, deeds, licenses' },
+    { href: '/compliance/schemes', label: 'Government schemes', sub: 'Kissan Card, BISP, tubewell solar' },
     { href: '/compliance/tax-filings', label: t('compliance.tax_filings', locale), sub: 'Agri tax, income tax' },
-    { href: '/compliance/subsidies', label: t('compliance.subsidies', locale), sub: 'Kissan Card, urea' },
+    { href: '/compliance/subsidies', label: t('compliance.subsidies', locale), sub: 'Legacy subsidy log' },
     { href: '/compliance/spray-diary', label: t('compliance.spray_diary', locale), sub: 'Pesticide log' },
   ];
   return (

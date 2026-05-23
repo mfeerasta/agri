@@ -4,10 +4,17 @@ import { Masthead, SectionDivider, Card, CardHeader, CardTitle, CardContent } fr
 import { getSessionContext } from '@/lib/session';
 import { listCropPlanOptions } from '@/modules/compliance/spray-planner-actions';
 import { SprayPlannerClient } from '@/modules/compliance/spray-planner-client';
+import { ScoutingContextPanel } from '@/modules/compliance/scouting-context-panel';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SprayPlannerPage() {
+interface PageProps {
+  searchParams?: Promise<{ fieldId?: string; fromScouting?: string }>;
+}
+
+export default async function SprayPlannerPage({ searchParams }: PageProps) {
+  const sp = (await searchParams) ?? {};
+  const focusFieldId = sp.fieldId;
   const ctx = await getSessionContext();
   if (!ctx) return <div className="p-6">Not authenticated.</div>;
 
@@ -122,6 +129,8 @@ export default async function SprayPlannerPage() {
           </div>
         </CardContent>
       </Card>
+
+      {focusFieldId ? <ScoutingContextPanel fieldId={focusFieldId} /> : null}
 
       <SprayPlannerClient cropPlanOptions={cropPlanOptions} />
     </div>

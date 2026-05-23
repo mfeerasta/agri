@@ -153,6 +153,15 @@ export async function logHarvest(raw: unknown): Promise<Result> {
     .set({ currentStage: 'harvest', updatedAt: new Date() })
     .where(eq(cropPlans.id, d.cropPlanId));
 
+  // Auto-compute sharecrop settlement if the field has an active sharecrop lease.
+  // Failure is non-fatal — the harvest itself is the source-of-truth.
+  try {
+    const { computeSettlement } = await import('@/modules/land/sharecrop-settlement');
+    await computeSettlement(harvest!.id);
+  } catch {
+    // ignore — settlement may not apply (owned/rented field)
+  }
+
   revalidatePath(`/crops/plans/${d.cropPlanId}`);
   return { ok: true, id: lot!.id };
 }

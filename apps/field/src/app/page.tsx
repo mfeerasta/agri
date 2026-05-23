@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BigButton, Masthead } from '@zameen/ui';
 import { t, formatDateLocalized } from '@zameen/locale';
-import { Clock, Fuel, Wrench, Wheat, PackageOpen, MilkOff, ListChecks, Camera, User, ImageDown, Stethoscope } from 'lucide-react';
+import { Clock, Fuel, Wrench, Wheat, PackageOpen, MilkOff, ListChecks, Camera, User, ImageDown, Stethoscope, Bug } from 'lucide-react';
 import { getFieldSession } from '../lib/session';
 import { SyncBadge } from '../components/sync-badge';
 import { LocaleToggle } from '../components/locale-toggle';
@@ -37,6 +37,7 @@ export default async function FieldHome() {
       <Link href="/repair/new"><BigButton icon={<Wrench />} label={t('repair.request', locale)} tone="warning" /></Link>
       <Link href="/harvest"><BigButton icon={<Wheat />} label={t('harvest.title', locale)} tone="success" /></Link>
       <Link href="/diagnose"><BigButton icon={<Stethoscope />} label="فصل کی تشخیص" tone="warning" /></Link>
+      <Link href="/scouting"><BigButton icon={<Bug />} label="کیڑے مار جائزہ" tone="warning" /></Link>
       <Link href="/issuance"><BigButton icon={<PackageOpen />} label={t('issuance.title', locale)} tone="neutral" /></Link>
       <Link href="/livestock"><BigButton icon={<MilkOff />} label={t('livestock.title', locale)} tone="neutral" /></Link>
       <Link href="/photos"><BigButton icon={<ImageDown />} label={t('photo.queue', locale)} tone="neutral" /></Link>

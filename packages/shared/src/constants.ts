@@ -15,6 +15,7 @@ export const APPROVAL_TYPES = [
   'loan',
   'insurance',
   'bonus_award',
+  'lease_payment',
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
@@ -38,6 +39,7 @@ export const DEFAULT_APPROVAL_THRESHOLDS_PKR: Record<
   loan: { supervisor: 0, farm_manager: 0, director: 0 },
   insurance: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
   bonus_award: { supervisor: 0, farm_manager: 25_000, director: 100_000 },
+  lease_payment: { supervisor: 0, farm_manager: 50_000, director: 250_000 },
 };
 
 export const USER_ROLES = [
