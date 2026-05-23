@@ -18,6 +18,9 @@ export const inputs = zameen.table('inputs', {
   reorderPoint: decimal('reorder_point', { precision: 12, scale: 4 }),
   notes: text('notes'),
   isActive: boolean('is_active').notNull().default(true),
+  preHarvestIntervalDays: decimal('pre_harvest_interval_days', { precision: 4, scale: 0 }),
+  activeIngredient: text('active_ingredient'),
+  epaClass: text('epa_class'),
 });
 
 export const inputPurchases = zameen.table('input_purchases', {

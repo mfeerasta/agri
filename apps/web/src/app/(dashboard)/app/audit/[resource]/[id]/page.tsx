@@ -27,12 +27,12 @@ import {
   AgingBars,
   StatBlock,
   Pkr,
-  JsonDiff,
   type JsonValue,
 } from '@zameen/ui';
 import type { ApprovalContextSnapshot } from '@zameen/approvals';
 import { getSessionContext } from '@/lib/session';
 import { fmtDateTime, fmtDate } from '@/lib/format';
+import { AuditTimeline, type TimelineRow } from '@/modules/audit/components/timeline';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,13 +71,14 @@ export default async function AuditWalkPage({
   }
 
   // Step 1: current audit entries for this resource id.
-  const auditRows = await db
+  const auditRowsRaw = await db
     .select({
       id: auditLog.id,
       action: auditLog.action,
       resource: auditLog.resource,
       occurredAt: auditLog.occurredAt,
       actorRole: auditLog.actorRole,
+      actorId: auditLog.actorId,
       before: auditLog.before,
       after: auditLog.after,
       actorName: users.fullName,
@@ -86,6 +87,17 @@ export default async function AuditWalkPage({
     .leftJoin(users, eq(auditLog.actorId, users.id))
     .where(and(eq(auditLog.resource, resource), eq(auditLog.resourceId, id)))
     .orderBy(desc(auditLog.occurredAt));
+  const auditRows: TimelineRow[] = auditRowsRaw.map((r) => ({
+    id: r.id,
+    action: r.action,
+    resource: r.resource,
+    occurredAt: r.occurredAt,
+    actorRole: r.actorRole,
+    actorName: r.actorName,
+    actorId: r.actorId,
+    before: r.before as JsonValue | null,
+    after: r.after as JsonValue | null,
+  }));
 
   // Step 2: resolve the approval request (depends on resource kind).
   let approvalReqId: string | null = null;
@@ -170,23 +182,11 @@ export default async function AuditWalkPage({
             {resource} / {id.slice(0, 8)}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm space-y-3">
-          {auditRows.length === 0 ? (
-            <div className="text-[var(--ink)]/60">No audit_log rows for this resource id.</div>
-          ) : (
-            auditRows.map((row) => (
-              <div key={row.id} className="border-l-2 border-[var(--rule)] pl-3">
-                <div className="flex justify-between items-baseline">
-                  <span className="smallcaps text-[0.7rem]">{row.action}</span>
-                  <span className="tabular text-xs text-[var(--ink)]/60">{fmtDateTime(row.occurredAt)}</span>
-                </div>
-                <div className="text-xs text-[var(--ink)]/70 mb-2">
-                  by {row.actorName ?? row.actorRole ?? 'unknown'}
-                </div>
-                <JsonDiff before={row.before as JsonValue | null} after={row.after as JsonValue | null} />
-              </div>
-            ))
-          )}
+        <CardContent className="text-sm">
+          <AuditTimeline
+            rows={auditRows}
+            csvHref={`/api/audit/timeline-csv?resource=${encodeURIComponent(resource)}&id=${encodeURIComponent(id)}`}
+          />
         </CardContent>
       </Card>
 

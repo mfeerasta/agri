@@ -13,7 +13,10 @@ type ConditionKind =
   | 'heavy_rain'
   | 'strong_wind'
   | 'low_humidity'
-  | 'drought_days';
+  | 'drought_days'
+  | 'low_soil_moisture'
+  | 'high_et0'
+  | 'leaf_wetness';
 
 type ActionKind = 'create_task' | 'notify_supervisor' | 'flag_field' | 'suspend_spraying';
 
@@ -24,6 +27,10 @@ interface Threshold {
   windKph?: number;
   humidityPct?: number;
   consecutiveDays?: number;
+  soilMoistureM3M3?: number;
+  et0Mm?: number;
+  leafWetnessHours?: number;
+  frostHours?: number;
 }
 
 interface Rule {
@@ -44,6 +51,10 @@ interface WeatherRow {
   rainfall_mm: string | number | null;
   humidity_pct: string | number | null;
   wind_kph: string | number | null;
+  et0_mm: string | number | null;
+  soil_moisture_0to10: string | number | null;
+  frost_hours: number | null;
+  leaf_wetness_hours: number | null;
 }
 
 function n(v: string | number | null | undefined): number | null {
@@ -57,6 +68,12 @@ function evaluate(rule: Rule, rows: WeatherRow[]): { matched: boolean; observati
   switch (rule.condition_kind) {
     case 'frost_warning': {
       const limit = t.minTempC ?? 2;
+      const hoursLimit = t.frostHours ?? 1;
+      const next24 = [...rows].sort((a, b) => a.recorded_for.localeCompare(b.recorded_for)).slice(0, 2);
+      const byHours = next24.find((r) => (r.frost_hours ?? 0) >= hoursLimit);
+      if (byHours) {
+        return { matched: true, observation: { frostHours: byHours.frost_hours, on: byHours.recorded_for, source: 'hourly' } };
+      }
       const hit = rows.find((r) => {
         const v = n(r.min_temp_c);
         return v !== null && v <= limit;
@@ -130,6 +147,51 @@ function evaluate(rule: Rule, rows: WeatherRow[]): { matched: boolean; observati
       }
       return { matched: false, observation: {} };
     }
+    case 'low_soil_moisture': {
+      const limit = t.soilMoistureM3M3 ?? 0.15;
+      const days = t.consecutiveDays ?? 7;
+      const sorted = [...rows].sort((a, b) => a.recorded_for.localeCompare(b.recorded_for));
+      let run = 0;
+      for (const r of sorted) {
+        const v = n(r.soil_moisture_0to10);
+        if (v !== null && v < limit) run += 1;
+        else run = 0;
+        if (run >= days) {
+          return { matched: true, observation: { dryRunDays: run, thresholdM3M3: limit } };
+        }
+      }
+      return { matched: false, observation: {} };
+    }
+    case 'high_et0': {
+      const limit = t.et0Mm ?? 8;
+      const days = t.consecutiveDays ?? 3;
+      const sorted = [...rows].sort((a, b) => a.recorded_for.localeCompare(b.recorded_for));
+      let run = 0;
+      let runStart: string | null = null;
+      for (const r of sorted) {
+        const v = n(r.et0_mm);
+        if (v !== null && v >= limit) {
+          if (run === 0) runStart = r.recorded_for;
+          run += 1;
+          if (run >= days) {
+            return { matched: true, observation: { thresholdEt0Mm: limit, days: run, since: runStart } };
+          }
+        } else {
+          run = 0;
+          runStart = null;
+        }
+      }
+      return { matched: false, observation: {} };
+    }
+    case 'leaf_wetness': {
+      const limit = t.leafWetnessHours ?? 12;
+      const sorted = [...rows].sort((a, b) => a.recorded_for.localeCompare(b.recorded_for));
+      const next = sorted.slice(0, 2);
+      const hit = next.find((r) => (r.leaf_wetness_hours ?? 0) >= limit);
+      return hit
+        ? { matched: true, observation: { leafWetnessHours: hit.leaf_wetness_hours, on: hit.recorded_for, thresholdHours: limit } }
+        : { matched: false, observation: {} };
+    }
   }
 }
 
@@ -158,7 +220,7 @@ Deno.serve(instrument('weather-alert-checker', async () => {
 
     const { data: weather, error: wErr } = await supabase
       .from('weather_records')
-      .select('recorded_for, min_temp_c, max_temp_c, rainfall_mm, humidity_pct, wind_kph')
+      .select('recorded_for, min_temp_c, max_temp_c, rainfall_mm, humidity_pct, wind_kph, et0_mm, soil_moisture_0to10, frost_hours, leaf_wetness_hours')
       .eq('entity_id', rule.entity_id)
       .gte('recorded_for', fromIso)
       .order('recorded_for', { ascending: false });

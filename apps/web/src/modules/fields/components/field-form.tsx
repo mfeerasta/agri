@@ -11,7 +11,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-  FieldEditor,
+  FieldPolygonEditor,
   Input,
   Label,
 } from '@zameen/ui';
@@ -50,6 +50,7 @@ export function FieldForm({ blocks, defaults, mode = 'create' }: Props) {
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [geometry, setGeometry] = React.useState<AnyGeom | null>(initialGeometry ?? null);
   const [autoAcres, setAutoAcres] = React.useState<boolean>(!initialGeometry);
+  const [computedAcres, setComputedAcres] = React.useState<number>(0);
   const [khasraRaw, setKhasraRaw] = React.useState<string>((defaults?.khasraNumbers ?? []).join(', '));
 
   const initialCentroid = React.useMemo(() => polygonCentroid(initialGeometry ?? null) ?? undefined, [initialGeometry]);
@@ -57,6 +58,7 @@ export function FieldForm({ blocks, defaults, mode = 'create' }: Props) {
   const handleGeometryChange = React.useCallback(
     (g: AnyGeom | null, acres: number) => {
       setGeometry(g);
+      setComputedAcres(acres);
       if (g) {
         form.setValue('geometry', g as never, { shouldValidate: true });
         if (autoAcres) form.setValue('acres', Number(acres.toFixed(3)), { shouldValidate: true });
@@ -171,12 +173,28 @@ export function FieldForm({ blocks, defaults, mode = 'create' }: Props) {
               Tap Draw, click around the field on the satellite map to outline it, then switch to Edit to
               fine-tune individual corners. Area auto-updates from the polygon.
             </p>
-            <FieldEditor
+            <FieldPolygonEditor
               initialGeometry={initialGeometry}
-              initialCentroid={initialCentroid}
+              centerLng={initialCentroid?.lng}
+              centerLat={initialCentroid?.lat}
               onChange={handleGeometryChange}
               height={520}
             />
+            <div className="mt-2 flex items-center gap-3 text-xs text-[var(--fg-muted)]">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  if (computedAcres <= 0) return;
+                  setAutoAcres(true);
+                  form.setValue('acres', Number(computedAcres.toFixed(3)), { shouldValidate: true });
+                }}
+                disabled={computedAcres <= 0}
+              >
+                Use computed acres ({computedAcres.toFixed(3)})
+              </Button>
+              {!autoAcres ? <span>Manual override is on. Toggle Auto from polygon to resync.</span> : null}
+            </div>
           </div>
 
           {Object.values(form.formState.errors).length > 0 ? (

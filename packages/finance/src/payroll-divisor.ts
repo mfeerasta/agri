@@ -8,7 +8,52 @@
  */
 
 import { and, eq, gte, lte } from 'drizzle-orm';
-import { db, entities, workers, attendanceRecords, pieceRateLogs } from '@zameen/db';
+import {
+  db,
+  entities,
+  entitySettings,
+  holidays,
+  workers,
+  attendanceRecords,
+  pieceRateLogs,
+} from '@zameen/db';
+
+export interface HolidayPolicy {
+  countPublicHolidaysAsWorked: boolean;
+  countReligiousHolidaysAsWorked: boolean;
+}
+
+const DEFAULT_HOLIDAY_POLICY: HolidayPolicy = {
+  countPublicHolidaysAsWorked: true,
+  countReligiousHolidaysAsWorked: true,
+};
+
+export async function resolveHolidayPolicy(entityId: string): Promise<HolidayPolicy> {
+  const [s] = await db
+    .select()
+    .from(entitySettings)
+    .where(eq(entitySettings.entityId, entityId))
+    .limit(1);
+  const cfg = (s?.unitsConfig ?? {}) as { holidayPolicy?: Partial<HolidayPolicy> };
+  return { ...DEFAULT_HOLIDAY_POLICY, ...(cfg.holidayPolicy ?? {}) };
+}
+
+export async function countDeductibleHolidays(
+  periodStart: string,
+  periodEnd: string,
+  policy: HolidayPolicy,
+): Promise<number> {
+  const rows = await db
+    .select()
+    .from(holidays)
+    .where(and(gte(holidays.date, periodStart), lte(holidays.date, periodEnd)));
+  let deduct = 0;
+  for (const r of rows) {
+    if (r.kind === 'public' && !policy.countPublicHolidaysAsWorked) deduct++;
+    else if (r.kind === 'religious' && !policy.countReligiousHolidaysAsWorked) deduct++;
+  }
+  return deduct;
+}
 
 export type PayrollDivisorKind = 'flat_30' | 'actual_calendar' | 'flat_26';
 
@@ -31,6 +76,7 @@ function daysBetween(startIso: string, endIso: string): number {
 export async function payrollDivisorFor(entityId: string): Promise<PayrollDivisor> {
   const [e] = await db.select().from(entities).where(eq(entities.id, entityId)).limit(1);
   const code = e?.code ?? '';
+  const policy = await resolveHolidayPolicy(entityId);
   if (code === 'RFB') {
     return {
       entityCode: code,
@@ -41,6 +87,10 @@ export async function payrollDivisorFor(entityId: string): Promise<PayrollDiviso
   if (code === 'ZP') {
     return { entityCode: code, kind: 'flat_26', divisorForPeriod: () => 26 };
   }
+  // AGRI default: flat-30 less any holidays the entity policy says don't count
+  // as worked. Async deduction can't return through the divisor signature, so
+  // we keep this synchronous but expose policy to callers via resolveHolidayPolicy.
+  void policy;
   return { entityCode: code || 'AGRI', kind: 'flat_30', divisorForPeriod: () => 30 };
 }
 
@@ -72,7 +122,10 @@ export async function computeNetPay(input: NetPayInput): Promise<NetPayBreakdown
   if (!worker) throw new Error(`Worker ${input.workerId} not found`);
 
   const divisor = await payrollDivisorFor(worker.entityId);
-  const div = divisor.divisorForPeriod(input.periodStart, input.periodEnd);
+  const policy = await resolveHolidayPolicy(worker.entityId);
+  const baseDiv = divisor.divisorForPeriod(input.periodStart, input.periodEnd);
+  const deduct = await countDeductibleHolidays(input.periodStart, input.periodEnd, policy);
+  const div = Math.max(1, baseDiv - deduct);
 
   const attendance = await db
     .select()

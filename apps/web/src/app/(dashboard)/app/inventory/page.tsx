@@ -7,6 +7,9 @@ export default async function InventoryHub() {
   const locale = await getLocale();
   const tiles = [
     { href: '/inventory/inputs', title: t('inventory.inputs', locale), caption: 'Seeds, fertilizer, pesticide' },
+    { href: '/inventory/fertilizer-log', title: 'کھاد لاگ / Fertilizer log', caption: 'Daily plot-wise consumption matrix' },
+    { href: '/inventory/pesticide-log', title: 'زرعی دوا لاگ / Pesticide log', caption: 'Daily plot-wise spray matrix with PHI flags' },
+    { href: '/inventory/seed-log', title: 'بیج لاگ / Seed log', caption: 'Daily plot-wise seeding matrix with rate flags' },
     { href: '/inventory/produce', title: t('inventory.produce', locale), caption: 'Harvested lots, storage' },
     { href: '/inventory/assets', title: t('inventory.assets', locale), caption: 'Tractors, implements, plant' },
   ];

@@ -9,6 +9,8 @@ import { ServiceWorkerRegister } from '../components/service-worker-register';
 import { SyncDaemon } from '../components/sync-daemon';
 import { SyncStatusHost } from '../components/sync-status-host';
 import { TrainingBanner } from '../components/training-banner';
+import { RamadanBanner } from '@zameen/ui';
+import { getCurrentRamadanDay, getIftarTime } from '../lib/ramadan-server';
 
 const CAPACITOR_DETECT = `(function(){try{var c=window.Capacitor;if(c&&typeof c.isNativePlatform==='function'&&c.isNativePlatform()){document.documentElement.classList.add('capacitor-native','capacitor-'+(c.getPlatform&&c.getPlatform()||'unknown'));}}catch(e){}})();`;
 
@@ -39,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const dir = localeDirection(locale);
   const lang = localeHtmlLang(locale);
   const bodyLocaleClass = locale === 'ur' || locale === 'pa' ? 'urdu' : '';
+  const [ramadanDay, iftar] = await Promise.all([getCurrentRamadanDay(), getIftarTime()]);
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
       <body className={`${bodyLocaleClass} min-h-screen bg-[var(--paper)] text-[var(--ink)] antialiased`}>
@@ -48,6 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ServiceWorkerRegister />
         <SyncDaemon />
         <TrainingBanner />
+        <RamadanBanner ramadanDay={ramadanDay} iftarIso={iftar ? iftar.toISOString() : null} />
         <header className="sticky top-0 z-30 flex items-center justify-end bg-[var(--paper)]/80 px-3 py-2 backdrop-blur">
           <SyncStatusHost />
         </header>

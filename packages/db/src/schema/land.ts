@@ -24,6 +24,8 @@ export const farms = zameen.table('farms', {
   village: varchar('village', { length: 64 }),
   centroid: jsonb('centroid'),
   totalAcres: decimal('total_acres', { precision: 12, scale: 4 }),
+  soilGridsData: jsonb('soil_grids_data'),
+  soilGridsFetchedAt: timestamp('soil_grids_fetched_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -50,6 +52,8 @@ export const fields = zameen.table('fields', {
   khatooniNumber: varchar('khatooni_number', { length: 32 }),
   tenure: landTenureEnum('tenure').notNull().default('owned'),
   tenureDetails: jsonb('tenure_details'),
+  soilGridsData: jsonb('soil_grids_data'),
+  soilGridsFetchedAt: timestamp('soil_grids_fetched_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Masthead, SectionDivider, Card, CardContent, CardHeader, CardTitle, StatBlock, Pkr } from '@zameen/ui';
 import { t } from '@zameen/locale';
 import { getLocale } from '@/lib/locale';
+import { FxWidget } from './fx-widget';
 
 export default async function FinanceHome() {
   const locale = await getLocale();
@@ -9,9 +10,11 @@ export default async function FinanceHome() {
     { href: '/finance/accounts', label: t('finance.accounts', locale), sub: 'Ledger' },
     { href: '/finance/journal', label: t('finance.journal', locale), sub: 'Audit walk' },
     { href: '/finance/cost-allocations', label: t('finance.cost_allocations', locale), sub: 'Per field, per pool' },
+    { href: '/finance/field-ledger', label: 'Field ledger', sub: 'Combined daily per-plot pivot' },
     { href: '/finance/field-pnl', label: t('finance.field_pnl', locale), sub: 'Killer feature' },
     { href: '/finance/cash-flow', label: t('finance.cash_flow', locale), sub: '90-day forecast' },
     { href: '/finance/reconciliation/inputs', label: t('finance.reconciliation', locale), sub: 'Inputs · Diesel · Bank' },
+    { href: '/finance/statements', label: t('finance.statements', locale, 'Statements'), sub: 'PDF + XLSX export' },
   ];
   return (
     <div>
@@ -23,6 +26,8 @@ export default async function FinanceHome() {
         <StatBlock label={t('finance.receivables_30d', locale)} value={<Pkr value={0} mode="lac_crore" />} />
         <StatBlock label={t('finance.burn_30d', locale)} value={<Pkr value={0} mode="lac_crore" />} />
       </div>
+      <SectionDivider label="Foreign exchange" />
+      <FxWidget />
       <SectionDivider label={t('finance.navigate', locale)} />
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {TILES.map((tile) => (

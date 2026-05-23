@@ -20,12 +20,22 @@ import {
   type DiagnosticResultShape,
 } from './validators/crop-diagnostics.js';
 import diseaseLibrary from './lib/punjab-crop-diseases.json' with { type: 'json' };
+import { identifyPlant, type PlantNetResult } from './plantnet.js';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const TIMEOUT_MS = 30_000;
 const MAX_TOKENS = 1500;
+
+export interface SecondaryIdentification {
+  source: 'plantnet';
+  scientificName: string;
+  commonNames: string[];
+  family: string;
+  genus: string;
+  score: number;
+}
 
 export interface DiagnosticResult {
   diagnosisLabel: string;
@@ -36,6 +46,7 @@ export interface DiagnosticResult {
   alternativeDiagnoses: Array<{ label: string; confidence: number; reason: string }>;
   preventiveAdvice: string;
   rawText: string;
+  secondaryIdentification?: SecondaryIdentification;
 }
 
 export interface DiagnoseArgs {
@@ -117,6 +128,11 @@ function buildSystemPrompt(cropName?: string): string {
     '- If the photo is not of a crop or is too blurry, set confidence to 0, label to "Unrecognized", and rawText to the reason.',
     '- Urdu translation should be plain, readable, no Roman Urdu mixed in.',
     '',
+  ].join('\n');
+}
+
+function buildCropProfileReference(cropName?: string): string {
+  return [
     'Reference list of common Punjab problems (use these labels when applicable):',
     buildReferenceList(cropName),
   ].join('\n');
@@ -169,11 +185,20 @@ export async function diagnoseCropPhoto(args: DiagnoseArgs): Promise<DiagnosticR
     .filter(Boolean)
     .join(' ');
 
+  // Prompt caching: the system block and the crop profile block are stable
+  // across requests, so they are tagged ephemeral. Anthropic charges ~10% of
+  // input on a cache hit.
+  const cropProfile = buildCropProfileReference(args.cropName);
   const body = {
     model,
     max_tokens: MAX_TOKENS,
     temperature: 0.2,
-    system: buildSystemPrompt(args.cropName),
+    system: [
+      { type: 'text' as const, text: buildSystemPrompt(args.cropName), cache_control: { type: 'ephemeral' as const } },
+      ...(cropProfile
+        ? [{ type: 'text' as const, text: cropProfile, cache_control: { type: 'ephemeral' as const } }]
+        : []),
+    ],
     messages: [
       {
         role: 'user' as const,
@@ -210,10 +235,58 @@ export async function diagnoseCropPhoto(args: DiagnoseArgs): Promise<DiagnosticR
         : text;
       return emptyResult(raw);
     }
-    return toResult(validation.data);
+    const result = toResult(validation.data);
+    return await maybeAddPlantNet(result, args.imageUrl);
   } catch {
     return emptyResult('');
   } finally {
     clearTimeout(timer);
   }
+}
+
+const PLANTNET_CONFIDENCE_FLOOR = 0.6;
+const PLANTNET_AGREEMENT_FLOOR = 0.7;
+
+/**
+ * When Claude is uncertain (confidence below 0.6) we ask PlantNet for a
+ * second opinion. If PlantNet is confident (>= 0.7) and at least one of its
+ * top candidates shares a family or genus token with Claude's diagnosis
+ * label, we boost the combined confidence. Otherwise we attach the
+ * secondary identification for the supervisor to weigh.
+ */
+async function maybeAddPlantNet(
+  result: DiagnosticResult,
+  imageUrl: string,
+): Promise<DiagnosticResult> {
+  if (result.confidence >= PLANTNET_CONFIDENCE_FLOOR) return result;
+  const pn = await identifyPlant({ imageUrl });
+  if (!pn) return result;
+
+  const secondary: SecondaryIdentification = {
+    source: 'plantnet',
+    scientificName: pn.scientificName,
+    commonNames: pn.commonNames,
+    family: pn.family,
+    genus: pn.genus,
+    score: pn.score,
+  };
+
+  let boostedConfidence = result.confidence;
+  if (pn.score >= PLANTNET_AGREEMENT_FLOOR && agreesWith(result.diagnosisLabel, pn)) {
+    boostedConfidence = Math.min(1, Math.max(result.confidence, 0.55) + 0.15);
+  }
+
+  return {
+    ...result,
+    confidence: boostedConfidence,
+    secondaryIdentification: secondary,
+  };
+}
+
+function agreesWith(label: string, pn: PlantNetResult): boolean {
+  const haystack = label.toLowerCase();
+  const tokens = [pn.family, pn.genus, ...pn.commonNames, pn.scientificName]
+    .filter(Boolean)
+    .map((s) => s.toLowerCase());
+  return tokens.some((t) => t.length > 2 && haystack.includes(t));
 }

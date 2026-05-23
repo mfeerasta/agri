@@ -1250,3 +1250,140 @@ added now rather than after-the-fact:
   One week of report-only traffic into `zameen.csp_violations` (admin-RLS
   read, anon insert) gives us the data to tighten directives without
   blocking the pilot.
+
+## Open-Meteo + NASA POWER weather integration (2026-05-18)
+
+- **Open-Meteo over OpenWeather**: free, no API key, built-in agroclimatology
+  (FAO Penman-Monteith ET0, soil moisture at four depths, 16-day forecast,
+  hourly granularity). OpenWeather requires a paid plan for ET0 and soil
+  moisture, and caps forecasts at 5 days on the free tier.
+- **NASA POWER for 40-year normals**: keyless, community 'AG' tuned for
+  agriculture, daily resolution back to 1981. Used to compute monthly mean
+  temperature, total rainfall, and ET0 baselines so the platform can flag
+  anomalies (e.g. "March 2026 was 2.3C above the 1984-2024 mean").
+- **Hourly cache split from daily**: `zameen.weather_hourly` is upserted on
+  every 3-hour pull while `zameen.weather_records` keeps the one-row-per-day
+  contract existing consumers depend on. The hourly cache powers spray
+  windowing (06-09 vs 17-19) and frost-hour counting.
+- **GDD computed per-crop from base temperature**: wheat 5C, maize 10C,
+  cotton 15C, with sensible defaults for other crops. Base temperatures are
+  hard-coded in `open-meteo.ts` rather than pushed to `crop_profiles` for v1
+  to avoid a seed migration; can move later if customers need overrides.
+- **Frost detection from hourly subzero counts**: daily min temperature
+  underestimates frost severity. Counting hours below 2C in the next 24-48h
+  is far more actionable for protective irrigation calls.
+- **Backwards compatibility**: existing `weather_records` columns are
+  untouched. New columns are nullable and additive. Downstream readers
+  (spray-planner, weather-alert-checker) keep working with daily aggregates
+  and opt into ET0/soil/frost data only where it improves the decision.
+
+## 2026-05-18 Free public APIs: SoilGrids, OpenAQ, Overpass, PlantNet
+
+Four keyless or nearly-keyless integrations added to enrich Zameen without
+adding subscription cost or building proprietary data pipelines for v1.
+
+- **ISRIC SoilGrids 250m raster** as a baseline soil profile. The Raiwind
+  pilot starts before any commercial lab visit, and waiting on lab turnaround
+  is two-to-three weeks of guesswork on fertiliser plans. SoilGrids gives us
+  pH, organic carbon, clay/sand/silt fractions, bulk density and CEC down to
+  30 cm anywhere in the world. Auto-fetched on field creation at the polygon
+  centroid; first soil_tests row is auto-seeded with laboratory =
+  "SoilGrids 250m raster" so dashboards always have a profile. The UI is
+  explicit that this is a model output, not a lab result, and prompts a real
+  test before fertiliser decisions. Cached on the field row forever (250m
+  raster does not move).
+- **OpenAQ** for Lahore smog. Winter AQI routinely exceeds 300 in the Lahore
+  basin and that has a 1.5x worker-health and roughly 15% photosynthesis
+  impact vs. clean-air baselines. Hourly poller (06:00-20:00 PKT) inserts a
+  reading per entity; AQI >= 200 dispatches a smog notification to directors
+  and supervisors recommending spray postponement and masks. Field dashboard
+  surfaces current AQI next to weather. AQI computed via EPA breakpoints from
+  PM2.5 and PM10, dominant pollutant wins.
+- **OpenStreetMap Overpass** for nearby mandis, canals, roads, tubewells,
+  mosques and hospitals. Drives mandi-dispatch routing, irrigation planning
+  (which canals connect), logistics, and groundwater context (other tubewells
+  in the area). Public Overpass instances are rate-limited, so results are
+  cached per field for 30 days in zameen.nearby_features_cache. We do not
+  hammer the public endpoint on every page view.
+- **PlantNet** as a Claude-vision fallback. When Claude's crop diagnostic
+  returns < 0.6 confidence we ask PlantNet for a second opinion. PlantNet is
+  strong on species/family identification but weak on pest or disease
+  labelling, so it complements rather than replaces Claude. When PlantNet is
+  confident (>= 0.7) and shares a family or genus token with Claude's label,
+  we boost the combined confidence by 0.15 and store the secondary
+  identification. PLANTNET_API_KEY is optional; missing key short-circuits
+  gracefully without affecting Claude's primary path.
+
+All four APIs are keyless except PlantNet (free tier 500-1000 calls/day).
+Each call has a 30s timeout and one retry. No Sentinel Hub or Haazri
+coupling: these are independent of the satellite pipeline and the cross-app
+auth tables.
+
+## 2026-05-18 — FAO Locust, SBP FX, PBS mandi prices, NASA MODIS+SMAP
+
+Four free public data sources added to complement Sentinel-2 NDVI and Open-Meteo
+without coupling to Sentinel Hub or Haazri.
+
+FAO Locust Hub: public ArcGIS FeatureServer, no API key. We query a 500km
+buffer around the entity farm centroid weekly for swarms reported in the last
+90 days. Gregarious swarms within 100km trigger a push to director plus farm
+manager. Centroid defaults to Raiwind (31.2538, 74.1234) when farm coords are
+missing.
+
+SBP FX: rather than scrape the SBP M2M HTML page, we use exchangerate.host's
+free JSON endpoint. It tracks SBP within a few percent and gives us a stable
+schema. The SBP scrape URL is kept as a future fallback. Six PKR pairs covered:
+USD, EUR, GBP, AED, SAR, CNY. Daily 09:00 PKT.
+
+PBS / pricecheck.gov.pk: the PBS bulletins are irregular HTML/Excel and the
+layout shifts. We hit pricecheck.gov.pk's JSON endpoint first. On failure the
+poller returns inserts=0 with a note so the UI can prompt for manual entry.
+Phase 1 risk is acceptable; manual entry is the existing path anyway. Monday
+08:00 PKT after Friday/Saturday publication.
+
+NASA AppEEARS for MODIS MOD13Q1 NDVI (250m, 16-day cadence) and SMAP SPL3SMP_E
+soil moisture (9km, daily). AppEEARS is async (login -> task -> poll -> bundle
+-> CSV) so the poller is slow and runs once a week, not in real time. MODIS
+fills the every-5-day Sentinel-2 gap with daily-cadence data at 25x coarser
+resolution; we treat it as cross-validation, not a replacement. SMAP is L-band
+microwave so it sees soil moisture even through clouds, which is the point.
+NASA Earthdata credentials are required and the poller no-ops gracefully when
+they're missing.
+
+All four pollers reuse the existing instrument() job_runs wrapper. Each fetch
+has a 30s (or 60s for AppEEARS) timeout and one retry. No coupling to
+Sentinel Hub auth or Haazri tables.
+
+## Pakistan time + advisory API integrations
+
+- **Nager + Aladhan combined for Pakistan holiday coverage**. Nager exposes
+  gazetted public holidays but misses several PK observances (Iqbal Day,
+  Defence Day, anniversary holidays); Aladhan provides authoritative Hijri +
+  Eid/Ramadan windows. We merge both and dedupe by (date, lowercase name),
+  then overlay a small static supplement for the gaps. Both APIs are free and
+  keyless; 30s timeout with single retry per upstream.
+- **Aladhan for Ramadan + Eid windows**. Authoritative for the Sunni Hanafi
+  convention common across Punjab, including Lahore where the Raiwind farm
+  sits. Pulled daily for the iftar/sehri banner on the Field PWA so workers
+  see an Urdu countdown while attendance posting.
+- **Monsoon forecast Phase 1 via NASA POWER normals**. PMD does not publish a
+  public long-range API; their seasonal outlook PDF arrives mid-May and is
+  paywalled. Phase 1 derives a coarse normal / above / below indicator by
+  comparing this-year June precipitation to the 40-year POWER baseline,
+  centered on a climatological 1 July onset with a 7-day shift band. Cheap,
+  good enough to anchor the sowing/harvest tile until Phase 2 wires PMD.
+- **Advisory ingestion manual via PDF upload**. PARC and FAO Pakistan publish
+  weekly/monthly bulletins as PDFs without an API or stable feed. Admin uploads
+  the PDF URL on /app/admin/advisories; Claude vision extracts an English
+  summary + Urdu translation + commodity tags + recommendations. Beats brittle
+  scrapers and keeps a human in the loop for quality.
+- **FAO crop calendar baked as static JSON**. Sowing + harvest windows shift
+  less than once a year and are jurisdictional rather than data-driven. A
+  curated `packages/shared/src/lib/pakistan-crop-calendar.json` covers the 12
+  major Punjab crops and powers pre-fill on the new crop-plan form plus
+  out-of-window warning toasts.
+- **Holiday-aware payroll divisor**. Pakistani agricultural-labour convention
+  pays through public + religious holidays, so the default `holidayPolicy`
+  in `entity_settings.units_config` keeps both as worked. Entities can flip
+  either flag, and `computeNetPay` subtracts qualifying holidays from the
+  divisor before dividing salary, never letting the divisor drop below 1.

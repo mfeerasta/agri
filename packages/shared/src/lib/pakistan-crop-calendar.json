@@ -1,0 +1,114 @@
+{
+  "source": "FAO Pakistan country crop calendar, curated for Punjab (Lahore region)",
+  "lastReviewed": "2026-01",
+  "crops": [
+    {
+      "crop": "wheat",
+      "season": "rabi",
+      "sowingStart": "11-01",
+      "sowingEnd": "12-15",
+      "harvestStart": "04-15",
+      "harvestEnd": "05-15",
+      "notes": "Optimal sowing late Nov; late sowing past 15 Dec drops yield ~30 kg/ha/day."
+    },
+    {
+      "crop": "maize-spring",
+      "season": "rabi",
+      "sowingStart": "01-20",
+      "sowingEnd": "02-28",
+      "harvestStart": "05-20",
+      "harvestEnd": "06-30",
+      "notes": "Spring maize in Punjab; needs irrigation through April heat."
+    },
+    {
+      "crop": "maize-autumn",
+      "season": "kharif",
+      "sowingStart": "07-15",
+      "sowingEnd": "08-15",
+      "harvestStart": "10-25",
+      "harvestEnd": "11-30",
+      "notes": "Autumn maize; benefits from monsoon residual moisture."
+    },
+    {
+      "crop": "rice-basmati",
+      "season": "kharif",
+      "sowingStart": "05-20",
+      "sowingEnd": "06-30",
+      "harvestStart": "10-01",
+      "harvestEnd": "11-15",
+      "notes": "Nursery in May, transplant 30-35 days post-sowing."
+    },
+    {
+      "crop": "cotton",
+      "season": "kharif",
+      "sowingStart": "04-15",
+      "sowingEnd": "05-31",
+      "harvestStart": "09-15",
+      "harvestEnd": "12-15",
+      "notes": "Multiple pickings; defer last picking before frost."
+    },
+    {
+      "crop": "sugarcane-spring",
+      "season": "kharif",
+      "sowingStart": "02-15",
+      "sowingEnd": "03-31",
+      "harvestStart": "11-01",
+      "harvestEnd": "03-31",
+      "notes": "Long-duration; ratoon crops re-sprout after harvest."
+    },
+    {
+      "crop": "sugarcane-autumn",
+      "season": "rabi",
+      "sowingStart": "09-15",
+      "sowingEnd": "10-31",
+      "harvestStart": "12-01",
+      "harvestEnd": "04-30",
+      "notes": "Autumn-planted higher sucrose recovery."
+    },
+    {
+      "crop": "fodder-berseem",
+      "season": "rabi",
+      "sowingStart": "10-01",
+      "sowingEnd": "11-15",
+      "harvestStart": "12-15",
+      "harvestEnd": "05-31",
+      "notes": "Multiple cuttings every 30-40 days through winter and spring."
+    },
+    {
+      "crop": "fodder-maize",
+      "season": "kharif",
+      "sowingStart": "06-15",
+      "sowingEnd": "08-31",
+      "harvestStart": "08-15",
+      "harvestEnd": "11-15",
+      "notes": "Cut at tasseling for max biomass; multiple plantings staggered."
+    },
+    {
+      "crop": "gram",
+      "season": "rabi",
+      "sowingStart": "10-15",
+      "sowingEnd": "11-30",
+      "harvestStart": "03-15",
+      "harvestEnd": "04-30",
+      "notes": "Rainfed in barani Punjab; minimal irrigation needs."
+    },
+    {
+      "crop": "mustard",
+      "season": "rabi",
+      "sowingStart": "10-01",
+      "sowingEnd": "11-15",
+      "harvestStart": "02-15",
+      "harvestEnd": "03-31",
+      "notes": "Short-duration oilseed; intercrop with wheat possible."
+    },
+    {
+      "crop": "sunflower",
+      "season": "rabi",
+      "sowingStart": "01-15",
+      "sowingEnd": "02-28",
+      "harvestStart": "05-15",
+      "harvestEnd": "06-30",
+      "notes": "Spring sowing; avoid May-onwards sowing due to heat."
+    }
+  ]
+}

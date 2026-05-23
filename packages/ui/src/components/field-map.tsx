@@ -75,7 +75,10 @@ function polygonBbox(geom: FieldPolygon['geometry']): [number, number, number, n
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
   let saw = false;
   for (const ring of rings) {
-    for (const [x, y] of ring) {
+    for (const pt of ring) {
+      const x = pt[0];
+      const y = pt[1];
+      if (x === undefined || y === undefined) continue;
       saw = true;
       if (x < minLng) minLng = x;
       if (x > maxLng) maxLng = x;

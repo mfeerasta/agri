@@ -8,7 +8,16 @@
  * Prompt caching: pass `cacheSystem: true` (or `cacheKey`) to tag the system
  * block with `cache_control: { type: 'ephemeral' }`. Pass `cachedReferences`
  * to attach large static blocks (disease libraries, vocab) that also get
- * cached. Cache hits cost roughly 10% of normal input tokens.
+ * cached. The `cacheControl` option is an alias that accepts a list of
+ * cached reference strings inline; it is wired by the high-volume call
+ * sites listed below. Cache hits cost roughly 10% of normal input tokens.
+ *
+ * Wired sites (Anthropic prompt caching enabled):
+ *   1. WhatsApp NLU (nlu.ts) - system + intent grammar
+ *   2. Crop diagnostics (crop-diagnose.ts) - system + crop profile
+ *   3. Cash-flow narrative (digests/builders.ts) - CoA + recent journals
+ *   4. Spray planner (spray-planner.ts) - label library
+ *   5. Approval-context summarizer (digests/builders.ts) - entity policy
  *
  * Defaults:
  *   model:       env ZAMEEN_CLAUDE_MODEL or claude-3-5-sonnet-20241022
@@ -57,6 +66,15 @@ export interface CompleteArgs {
    * cache_control so the gateway caches it independently.
    */
   cachedReferences?: string[];
+  /**
+   * Explicit per-call cache control. When provided, the system block and
+   * every reference block are tagged ephemeral. Useful at call sites that
+   * want to opt into caching by config rather than by flag.
+   */
+  cacheControl?: {
+    system?: boolean;
+    references?: string[];
+  };
   model?: string;
 }
 
@@ -101,12 +119,14 @@ interface AnthropicCompleteBody {
 }
 
 function buildSystem(args: CompleteArgs): SystemBlock[] {
-  const cacheSystem = Boolean(args.cacheSystem || args.cacheKey);
+  const cacheSystem =
+    Boolean(args.cacheSystem || args.cacheKey) || Boolean(args.cacheControl?.system);
   const blocks: SystemBlock[] = [{ type: 'text', text: args.system }];
   if (cacheSystem) {
     blocks[0].cache_control = { type: 'ephemeral' };
   }
-  for (const ref of args.cachedReferences ?? []) {
+  const refs = [...(args.cachedReferences ?? []), ...(args.cacheControl?.references ?? [])];
+  for (const ref of refs) {
     blocks.push({ type: 'text', text: ref, cache_control: { type: 'ephemeral' } });
   }
   return blocks;

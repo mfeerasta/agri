@@ -248,7 +248,15 @@ export async function parseMessage(input: ParseMessageInput): Promise<ParsedInte
       body: JSON.stringify({
         model,
         max_tokens: 800,
-        system: buildSystemPrompt(),
+        // System prompt and intent grammar are stable across calls so we mark
+        // the block ephemeral. Cache hits cost ~10% of normal input tokens.
+        system: [
+          {
+            type: 'text',
+            text: buildSystemPrompt(),
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
         messages: [{ role: 'user', content: buildUserPrompt(input) }],
       }),
       signal: controller.signal,

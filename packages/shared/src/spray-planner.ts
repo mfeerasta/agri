@@ -11,6 +11,17 @@ export interface WeatherForecastDay {
   rainfallMm: number;
   humidityPct: number;
   windKph: number;
+  /** Optional hourly slice for this day (08:00-20:00 local). */
+  hourly?: WeatherForecastHour[];
+}
+
+export interface WeatherForecastHour {
+  localHour: number;
+  tempC: number;
+  rainfallMm: number;
+  humidityPct: number;
+  windKph: number;
+  windGustKph?: number;
 }
 
 export interface SprayWindow {
@@ -28,6 +39,11 @@ export interface SprayPlanInput {
   preHarvestIntervalDays: number;
   forecastDays: WeatherForecastDay[];
   daysToHarvestEstimate?: number;
+  /**
+   * When true (Ramadan active), penalize any slot overlapping the 12:00-16:00
+   * window because fasting workers shouldn't spray in extreme heat.
+   */
+  ramadanActive?: boolean;
 }
 
 interface CandidateSlot {
@@ -54,30 +70,63 @@ function clamp01(n: number): number {
   return n;
 }
 
+function slotAggregates(day: WeatherForecastDay, slot: CandidateSlot): {
+  tempC: number;
+  windKph: number;
+  windGustKph: number;
+  rainMm: number;
+  humidityPct: number;
+  sourcedFromHourly: boolean;
+} {
+  if (day.hourly && day.hourly.length > 0) {
+    const inSlot = day.hourly.filter((h) => h.localHour >= slot.startLocalHour && h.localHour < slot.endLocalHour);
+    if (inSlot.length > 0) {
+      const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+      return {
+        tempC: avg(inSlot.map((h) => h.tempC)),
+        windKph: Math.max(...inSlot.map((h) => h.windKph)),
+        windGustKph: Math.max(...inSlot.map((h) => h.windGustKph ?? h.windKph)),
+        rainMm: inSlot.reduce((a, b) => a + b.rainfallMm, 0),
+        humidityPct: avg(inSlot.map((h) => h.humidityPct)),
+        sourcedFromHourly: true,
+      };
+    }
+  }
+  return {
+    tempC: day.minTempC + (day.maxTempC - day.minTempC) * slot.tempFactor,
+    windKph: day.windKph,
+    windGustKph: day.windKph,
+    rainMm: day.rainfallMm,
+    humidityPct: day.humidityPct,
+    sourcedFromHourly: false,
+  };
+}
+
 function evaluateSlot(day: WeatherForecastDay, slot: CandidateSlot): SprayWindow {
   const warnings: string[] = [];
   const rationaleParts: string[] = [];
   let score = 1;
 
-  // Adjust temp for time-of-day: morning and evening are cooler than mid-day max.
-  const slotMaxTempC = day.minTempC + (day.maxTempC - day.minTempC) * slot.tempFactor;
+  const agg = slotAggregates(day, slot);
+  const slotMaxTempC = agg.tempC;
+  if (agg.sourcedFromHourly) rationaleParts.push('hourly');
 
-  if (day.windKph > WIND_HARD_LIMIT_KPH) {
+  if (agg.windKph > WIND_HARD_LIMIT_KPH) {
     score = 0;
-    warnings.push(`wind ${day.windKph.toFixed(0)} kph exceeds ${WIND_HARD_LIMIT_KPH} kph drift limit`);
-  } else if (day.windKph > WIND_HARD_LIMIT_KPH * 0.7) {
+    warnings.push(`wind ${agg.windKph.toFixed(0)} kph exceeds ${WIND_HARD_LIMIT_KPH} kph drift limit`);
+  } else if (agg.windKph > WIND_HARD_LIMIT_KPH * 0.7) {
     score *= 0.7;
-    rationaleParts.push(`moderate wind ${day.windKph.toFixed(0)} kph`);
+    rationaleParts.push(`moderate wind ${agg.windKph.toFixed(0)} kph`);
   } else {
-    rationaleParts.push(`calm ${day.windKph.toFixed(0)} kph`);
+    rationaleParts.push(`calm ${agg.windKph.toFixed(0)} kph`);
   }
 
-  if (day.rainfallMm > RAIN_HARD_LIMIT_MM) {
+  if (agg.rainMm > RAIN_HARD_LIMIT_MM) {
     score = 0;
-    warnings.push(`rainfall ${day.rainfallMm.toFixed(1)} mm risks wash-off`);
-  } else if (day.rainfallMm > 0) {
+    warnings.push(`rainfall ${agg.rainMm.toFixed(1)} mm risks wash-off`);
+  } else if (agg.rainMm > 0) {
     score *= 0.85;
-    rationaleParts.push(`trace rain ${day.rainfallMm.toFixed(1)} mm`);
+    rationaleParts.push(`trace rain ${agg.rainMm.toFixed(1)} mm`);
   } else {
     rationaleParts.push('dry');
   }
@@ -92,15 +141,15 @@ function evaluateSlot(day: WeatherForecastDay, slot: CandidateSlot): SprayWindow
     rationaleParts.push(`mild ${slotMaxTempC.toFixed(0)}C`);
   }
 
-  if (day.humidityPct >= HUMIDITY_BONUS_LOW && day.humidityPct <= HUMIDITY_BONUS_HIGH) {
+  if (agg.humidityPct >= HUMIDITY_BONUS_LOW && agg.humidityPct <= HUMIDITY_BONUS_HIGH) {
     score = clamp01(score * 1.1);
-    rationaleParts.push(`optimal humidity ${day.humidityPct.toFixed(0)}%`);
-  } else if (day.humidityPct < 30) {
+    rationaleParts.push(`optimal humidity ${agg.humidityPct.toFixed(0)}%`);
+  } else if (agg.humidityPct < 30) {
     score *= 0.85;
-    rationaleParts.push(`dry air ${day.humidityPct.toFixed(0)}%`);
-  } else if (day.humidityPct > 90) {
+    rationaleParts.push(`dry air ${agg.humidityPct.toFixed(0)}%`);
+  } else if (agg.humidityPct > 90) {
     score *= 0.9;
-    rationaleParts.push(`saturated air ${day.humidityPct.toFixed(0)}%`);
+    rationaleParts.push(`saturated air ${agg.humidityPct.toFixed(0)}%`);
   }
 
   return {
@@ -127,6 +176,10 @@ export function planSprayWindows(input: SprayPlanInput): SprayWindow[] {
         window.warnings.push(
           `PHI ${input.preHarvestIntervalDays}d > days-to-harvest ${input.daysToHarvestEstimate}d, residue risk`,
         );
+      }
+      if (input.ramadanActive && window.startLocalHour < 16 && window.endLocalHour > 12) {
+        window.score = 0;
+        window.warnings.push('Ramadan: avoid mid-day spray with fasting workers');
       }
       windows.push(window);
     }

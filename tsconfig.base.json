@@ -15,6 +15,7 @@
     "resolveJsonModule": true,
     "jsx": "preserve",
     "incremental": true,
+    "rootDir": ".",
     "baseUrl": ".",
     "paths": {
       "@zameen/db": ["./packages/db/src"],

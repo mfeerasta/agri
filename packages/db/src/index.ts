@@ -8,3 +8,11 @@ export const sql = postgres(url, { prepare: false });
 export const db = drizzle(sql, { schema });
 export * from './schema/index.js';
 export * as schema from './schema/index.js';
+export {
+  trackQuery,
+  executeTracked,
+  sanitizeSql,
+  listTopSlowQueriesToday,
+  type TrackedQueryOptions,
+  type SlowQueryRow,
+} from './slow-query-tracker.js';

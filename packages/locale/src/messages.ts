@@ -1262,6 +1262,7 @@ const EN: Bundle = {
   'finance.payables_30d': 'Payables 30d',
   'finance.receivables_30d': 'Receivables 30d',
   'finance.reconciliation': 'Reconciliation',
+  'finance.statements': 'Financial Statements',
   'finance.title': 'Finance',
   'form.invalid': 'Invalid',
   'form.optional': 'Optional',

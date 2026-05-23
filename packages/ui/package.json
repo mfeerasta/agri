@@ -22,7 +22,9 @@
     "recharts": "^2.13.3",
     "mapbox-gl": "^3.8.0",
     "@mapbox/mapbox-gl-draw": "^1.4.3",
-    "@turf/area": "^7.1.0"
+    "@turf/area": "^7.1.0",
+    "@turf/centroid": "^7.1.0",
+    "@turf/nearest-point-on-line": "^7.1.0"
   },
   "peerDependencies": {
     "react": "^18 || ^19",
